@@ -52,6 +52,10 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 
 - **"Released, not on main" needs a degree.** A hotfix that shipped and then got follow-up commits on develop isn't the same as work that never shipped. Split none vs partial (DEV-1194: #1107 hotfix to main, #1111 follow-ups on develop). (Phase 5, user question)
 
+- **Audit the model against every data source before trusting it, and early.** The commit-level engine was built on the *described* process ("develop merges into staging"); one read-only pass over GitHub PRs × git ancestry × Jira showed staging is assembled per ticket, hotfixes fan out as PRs, and some paths never ride the branches. Do this audit in Phase 1 next time. (Phase 5, user prompt)
+- **Ask where testing happens before modelling statuses.** "Done" meant "tested on dev", not "on staging". (Phase 5)
+- **Read the source behind a referenced document before modelling it.** The Confluence "release sheet" turned out to be a live Jira query on fixVersion. (Phase 5)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
@@ -77,7 +81,7 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **The preview server config is `~/.claude/launch.json`** (the session root), not `.claude/launch.json` in this repo. The entry is `release-dashboard` (port 3000). (Phase 0)
 - **The shell is zsh: unquoted `$var` does not word-split, and a bare `=====` is a command error.** Use arrays or `${a%%:*}` splitting, and `echo '---'` for separators. (Phase 0)
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
-- **No git auth switching is needed until Phase 6.** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
+- **No git auth switching is needed until Phase 7 (hosting).** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
 - **The browser pane may be hidden, so screenshots time out.** Use headless Chrome against `nuxt generate` + `python3 -m http.server`; force the theme with `--blink-settings=preferredColorScheme=0` (dark) or `=1` (light). (Phase 4)
 - **`gh pr edit` can fail on a Projects (classic) GraphQL error.** Update PR bodies with `gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -F body=@file` instead. (Phase 3)

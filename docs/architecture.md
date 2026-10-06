@@ -101,23 +101,29 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 
 ## Verdict rules
 
-Computed per repo, per hop `A→B`, over the git window. Each repo's develop→staging and staging→main hops use the release rules.
+Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `judge`). It lives in `shared/` so the snapshot precomputes verdicts for the current release, and the app can recompute them when another release is picked. Computed per repo, per hop `A→B`.
+
+**Ahead / back-sync.** Each item's presence on a branch ranks `none` < `partial` < `merged` = `picked`. The item is *ahead* on `A→B` when A ranks higher than B, and needs a *back-sync* when B ranks higher than A. Two `partial`s can't be compared, so they're neither. Items with no work in the repo are ignored for its hops.
+
+**Ready** = Done, and its fixVersions include the selected release **or a rolling version** (`ROLLING_VERSIONS`: "Rolling Hotfixes", which ships with whatever release is next and is never the current release).
 
 | Hop | Verdict | Condition |
 |---|---|---|
-| `develop→staging`, `staging→main` | `in-sync` | nothing on A missing from B |
-| | `clean` | every item ahead on A is in the selected release **and** Done |
-| | `cherry-pick` | some items ahead on A are not in the release or not Done (listed) |
-| `main→demo`, `main→main-uk`, `main-uk→demo-uk` | `in-sync` / `sync` | `sync` = N items on A not yet on B |
-| any hop, reverse | `back-sync` | items on B missing from A, e.g. hotfixes on main not on develop. Reported alongside the forward verdict, not instead of it |
+| `develop→staging`, `staging→main` (each repo) | `in-sync` | nothing ahead |
+| | `clean` | everything ahead is ready |
+| | `cherry-pick` | some items ahead aren't ready (`blockingIds`). Untracked work always blocks. |
+| app `main→demo`, `main→main-uk`, `main-uk→demo-uk` | `in-sync` / `sync` | `sync` = N items ahead |
+| every hop | `backSyncIds` | reported alongside the forward verdict |
 
-Warnings (item-level, shown as badges and counted in the header):
-- In the selected release but not on `develop` yet.
-- Done with no fixVersion.
-- Invalid ticket key.
-- Untracked change (no ticket key).
+**Warnings** (`computeWarnings` is their only owner):
 
-`partial` presence counts as "missing" for verdicts.
+| Warning | When |
+|---|---|
+| `not-on-develop` | in the selected release, but not fully on develop in every repo it has work in (or no work anywhere yet) |
+| `missed-release` | every non-rolling fixVersion has shipped, but the work isn't fully on main. Either the fixVersion is stale or the work missed its release. It still blocks, so nothing goes out without being re-approved. |
+| `done-no-fixversion` | Done with no fixVersion |
+| `invalid-key` | key not found in Jira |
+| `untracked` | no ticket key |
 
 ## Snapshot contract
 

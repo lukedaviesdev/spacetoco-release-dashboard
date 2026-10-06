@@ -80,30 +80,33 @@ export const signalOf = (hop: Hop): Signal => {
   const where = `${hop.repo} ${hop.from} → ${hop.to}`;
   const ahead = hop.aheadIds.length;
   const blocking = hop.blockingIds.length;
+  const bringUp = hop.bringUpIds.length;
   switch (hop.verdict) {
-    case 'cherry-pick':
+    case 'hold-back':
       return {
         tone: 'danger',
         label: `hold back ${blocking}`,
         list: 'blocking',
         count: blocking,
-        description: `${where}: cherry-pick. ${plural(blocking, 'ticket')} on ${hop.from} must not go to ${hop.to}.`,
+        description: `${where}: not safe to merge. ${plural(blocking, 'ticket')} on ${hop.from} must not go to ${hop.to}`
+          + `${bringUp ? `; ${bringUp} ready to go` : ''}.`,
       };
-    case 'merge-with-extras':
+    case 'not-safe':
       return {
         tone: 'caution',
-        label: `${blocking} extra${blocking === 1 ? '' : 's'}`,
+        label: `${blocking} not ready${bringUp ? ` · ${bringUp} to bring up` : ''}`,
         list: 'blocking',
         count: blocking,
-        description: `${where}: merging brings ${plural(blocking, 'ticket')} outside the release onto ${hop.to}.`,
+        description: `${where}: not safe to merge whole. It would bring ${plural(blocking, 'ticket')} that aren't ready`
+          + `${bringUp ? `; bring up ${plural(bringUp, 'ticket')} individually` : ''}.`,
       };
-    case 'clean':
+    case 'safe':
       return {
         tone: 'clear',
-        label: `clean · ${ahead}`,
-        list: 'ahead',
-        count: ahead,
-        description: `${where}: clean merge, ${plural(ahead, 'ticket')} ready.`,
+        label: bringUp ? `safe · ${bringUp} to bring up` : 'safe',
+        list: bringUp ? 'bringUp' : 'ahead',
+        count: bringUp || ahead,
+        description: `${where}: safe to merge whole${bringUp ? `, bringing ${plural(bringUp, 'ticket')} up` : ''}.`,
       };
     case 'sync':
       return {

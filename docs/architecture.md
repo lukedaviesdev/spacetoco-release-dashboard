@@ -123,6 +123,7 @@ Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `ju
 
 | Warning | When |
 |---|---|
+| `extra-on-staging` | on staging ahead of main but not in the selected release (or a rolling version), whatever its status. It must not go to main. Unlike staging→main's `blockingIds`, this excludes release work that's only still being tested. |
 | `not-on-develop` | in the selected release, but not fully on develop in every repo it has work in (or no work anywhere yet) |
 | `missed-release` | every non-rolling fixVersion has shipped, but the work isn't fully on main. Either the fixVersion is stale or the work missed its release. It still blocks, so nothing goes out without being re-approved. |
 | `done-no-fixversion` | Done with no fixVersion |

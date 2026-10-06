@@ -7,7 +7,7 @@ Goal: answer three questions at a glance, before reading any ticket:
 
 Users: devs, QA, PMs.
 
-**The headline signal is work coming along when it shouldn't**: `merge-with-extras` on develop→staging (extras about to reach staging) and `cherry-pick` on staging→main (extras already on staging). These get the most visual weight; in-sync and clean hops should recede.
+**The headline signal is work coming along when it shouldn't**: `merge-with-extras` on develop→staging (extras about to reach staging), `cherry-pick` on staging→main, and the per-ticket `extra-on-staging` warning (work already on staging that must not go to main). The staging→main list should split "shouldn't be here" (`extra-on-staging`) from "still testing" (in the release, not Done). These get the most visual weight; in-sync and clean hops should recede.
 
 ## Direction: transit map header + well-plate detail
 

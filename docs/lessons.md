@@ -42,6 +42,11 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 
 - **Model the team's actual release process, not a generic one.** develop always merges into staging whole and gets tested there; the only cherry-picking is out of staging before main. So develop→staging needs only release membership and reports `merge-with-extras`, never `cherry-pick`; staging→main needs release + Done. (Phase 3, user correction ×2)
 
+- **A static or dev server answers a missing file with the app's HTML and a 200.** Validate fetched JSON's shape before trusting it; the first missing-snapshot test showed Nuxt's 500 page. (Phase 4)
+- **Pass Nuxt's `useRoute()` / `useRouter()` to `useRouteQuery` inside Pinia stores**, otherwise the store throws outside component setup (tests). (Phase 4)
+- **Vuetify sorts group keys numerically, so "0" and "00" tie.** Use letters for group order keys. (Phase 4)
+- **One huge cell can wreck an auto-layout table.** DEV-1189's 7 PR links set the PRs column to 475px. Cap lists in cells (first item plus "+N"). (Phase 4)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
@@ -56,6 +61,12 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Read-only towards SpacetoCo, for the app and for Claude.** Never write to Jira or the `spacetoco` GitHub org/repos: no issues, comments, PRs, transitions, pushes. The Jira client refuses non-read requests in code. If a SpacetoCo repo needs a change, hand the user the diff. (Phase 2, user rule)
 - **Never handle the user's tokens.** They create them and put them in `.env`; Claude doesn't paste, print or create them. (Phase 2)
 
+## Design process
+
+- **Stop the critic loop when the score plateaus and the critics contradict each other.** Act only on points that recur across rounds. Five rounds went 5, 5, 6, 5, 5. (Phase 4)
+- **Check the real-data distribution before choosing emphasis.** Ruling every amber row looked fine on the fixture, but on real data 25 of 34 rows were amber. (Phase 4)
+- **Check text colours against WCAG with a script, not by eye.** Three light-mode signal colours were below 4.5:1 on the warm background. (Phase 4)
+
 ## Environment (for Claude)
 
 - **The preview server config is `~/.claude/launch.json`** (the session root), not `.claude/launch.json` in this repo. The entry is `release-dashboard` (port 3000). (Phase 0)
@@ -63,5 +74,7 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
 - **No git auth switching is needed until Phase 6.** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
+- **The browser pane may be hidden, so screenshots time out.** Use headless Chrome against `nuxt generate` + `python3 -m http.server`; force the theme with `--blink-settings=preferredColorScheme=0` (dark) or `=1` (light). (Phase 4)
 - **`gh pr edit` can fail on a Projects (classic) GraphQL error.** Update PR bodies with `gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -F body=@file` instead. (Phase 3)
+- **Gate commits on the checks with `&&` (`pnpm -s lint && pnpm -s typecheck && pnpm -s test:unit && git commit …`).** A `;` let a lint error through into a commit. (Phase 4)
 - **Don't use `git stash` for quick experiments.** `git stash -- <untracked file>` stashes nothing, and a following `stash drop` would drop someone else's stash. Edit and revert the file directly. (Phase 3)

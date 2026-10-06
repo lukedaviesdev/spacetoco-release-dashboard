@@ -1,0 +1,43 @@
+/* Design tokens, layer 3: component tokens built on the Vuetify theme colours (vuetify.config.ts). */
+:root {
+  --font-signage: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --rule: rgb(var(--v-theme-rule));
+  --ink: rgb(var(--v-theme-on-background));
+  --muted: rgb(var(--v-theme-muted));
+
+  /* Wells: transit station symbols. Colour comes from the row state. */
+  --well-size: 14px;
+  /* Space between wells; labels above them take one pitch (size + gap) each so they line up. */
+  --well-gap: 16px;
+  --well-pitch: calc(var(--well-size) + var(--well-gap));
+  --well-stroke: 1.5px;
+  /* Filled wells sit just under text weight; 'not there' is a faint pin-prick so filled wells carry the signal. */
+  --well-ink: rgb(var(--v-theme-on-background), 0.8);
+  --well-empty: rgb(var(--v-theme-on-background), 0.22);
+
+  /* Row state, most serious first. */
+  --state-danger: rgb(var(--v-theme-signal-danger));
+  --state-return: rgb(var(--v-theme-signal-return));
+  --state-caution: rgb(var(--v-theme-signal-caution));
+  --state-ink: var(--well-ink);
+
+  /* Hop verdicts. Problems are loud; healthy hops recede. */
+  --verdict-in-sync: var(--muted);
+  --verdict-clean: rgb(var(--v-theme-signal-clear));
+  --verdict-sync: var(--ink);
+  --verdict-merge-with-extras: rgb(var(--v-theme-signal-caution));
+  --verdict-cherry-pick: rgb(var(--v-theme-signal-danger));
+  --verdict-back-sync: rgb(var(--v-theme-signal-return));
+
+  --staleness-old: rgb(var(--v-theme-signal-caution));
+
+  --line-app: var(--ink);
+  --line-api: rgb(var(--v-theme-line-api));
+}
+
+.v-application {
+  font-family: var(--font-body);
+}

@@ -47,8 +47,52 @@ Following `/design-with-ai`:
 5. **AI-tell sweep** before calling a phase done: no top-nav-plus-hero skeleton, no unearned gradients/glows/shadows, no single default sans doing every job, no captions restating the visual, no bespoke controls where a Vuetify one exists.
 6. **Craft floor:** light + dark theme, real contrast ratios, keyboard path through map segments and table, screen-reader labels on wells (e.g. "DEV-1314: on develop, on staging, not on main…"), states for empty / loading / failed load / 200+ items / long titles.
 
-## Decisions (fill in at Phase 4 start)
+## Decisions (Phase 4)
 
-- Palette: _TBD_
-- Type: _TBD_
-- Well presence encoding: _TBD_
+**Reference: a railway signal-box mimic panel.** It's an enamelled board showing the track layout, with lamps for each section's state, read at a glance by an operator. It isn't a consumer transit app. That means flat surfaces, hairline rules, colour only where it means something, and dense rows.
+
+**Palette** (semantic first; exact values live in the tokens):
+
+| Role | Light | Dark | Used for |
+|---|---|---|---|
+| Board | warm enamel `#F4F1EA` | panel `#12171C` | page background |
+| Ink | `#16202A` | `#E8E4DA` | text, merged wells, track |
+| Rule | `#D9D3C7` | `#2A333B` | hairlines, empty wells |
+| Muted ink | `#5B6670` | `#98A2AA` | secondary text |
+| Signal: clear | `#1F8A5B` | `#3FB27F` | clean / in-sync, ready |
+| Signal: caution | `#B9790A` | `#E0A43A` | merge-with-extras, still testing |
+| Signal: danger | `#C2362C` | `#EF6A5E` | cherry-pick, extra-on-staging, Released-not-on-main |
+| Signal: return | `#2C6FB7` | `#6AA5E8` | back-sync, hotfix |
+| Line: api | `#0E7C86` | `#3BB3BC` | the spacetoco-api line, repo label |
+
+No gradients, no shadows beyond Vuetify's flat defaults. Colour appears only on problem rows and verdicts; healthy rows stay ink-on-enamel so problems stand out.
+
+**Type:** **Barlow Condensed** (600) for signage: headings, group headers, branch names and verdict labels, like platform signs. **IBM Plex Sans** for body and table text. **IBM Plex Mono** for ticket keys, SHAs and PR numbers. Self-hosted via `@nuxt/fonts`.
+
+**Well presence encoding** (borrowed from transit map station symbols):
+
+| Presence | Well | Reads as |
+|---|---|---|
+| `merged` | solid disc | station: work is here |
+| `picked` | ring with a dot in the middle (an interchange symbol) | here, but arrived by cherry-pick |
+| `partial` | left half filled | some of it is here |
+| `none` | faint hairline ring | not here |
+
+**Tokens** (via `/design-system`): primitives are the hex values in `vuetify.config.ts`, the semantic layer is Vuetify's theme colour names (emitted as `--v-theme-*` and swapped per theme), and component tokens live in `assets/css/tokens.css` (wells, row states, verdicts, staleness). Every text colour clears WCAG AA on its background. Light-mode clear, caution and api were darkened for this.
+
+**Well colour** = the row's state for the selected release, in this order: **danger** (extra-on-staging, or Released-not-on-main), **return** (hotfix that needs a back-sync), **caution** (in the release but still testing / not Done), otherwise **ink**. A red row filled on the left is work on staging that shouldn't be; a blue row filled on the right is a hotfix to bring back.
+
+### What the Phase 4 critique rounds settled
+
+Five fresh-critic rounds scored **5, 5, 6, 5, 5**. That's a plateau: the critics agreed on direction but contradicted each other on details (diagonal vs horizontal labels, PRs inline vs own column). The loop stopped there, as the process allows. Phase 5's map changes the composition, and it gets its own rounds. What held up across rounds:
+
+- **A "Needs attention" group leads the board.** It holds every danger and return row (shouldn't be here, needs back-sync) whatever their version, so the headline numbers point at rows you can see.
+- **Only danger and return rows get the left-edge rule.** "Would come along" (amber) tints the wells only. On real data 25 of 34 rows were amber, and ruling them all drowned the signal.
+- **The summary is a row of filters.** Problems total, then shouldn't be here / needs back-sync / would come along, each toggling a `state` URL filter. The numerals carry the category colour and double as its key; zero counts go faint.
+- **The legend** covers both the well symbols and the three state colours.
+- **Housekeeping stays quiet.** "On main but not marked Released in Jira" is a count in the group header plus a dotted-underline hint on the status, not a per-row flag. A row shows one flag (problems first) plus "+N".
+- **Rows stay on one line.** Titles truncate with a tooltip; one PR plus "+N".
+- **Branch labels** are full names set diagonally over a fixed-pitch grid (`--well-pitch`). Repos are separated by space, not a rule.
+- **Statuses** are shown in sentence case (Jira mixes `(9) RELEASED` and `Done`); Done and Released are muted.
+- **Dark mode** has its own warm background (`#201D18`) and a lower-chroma amber, so red stays the loudest colour.
+- **Screenshots** are taken with headless Chrome against a production build (`nuxt generate`), forcing the colour scheme with `--blink-settings=preferredColorScheme=0|1`.

@@ -58,7 +58,7 @@ export interface Hop {
   verdict: Verdict
   /** On `from`, missing on `to`. */
   aheadIds: string[]
-  /** Subset of aheadIds causing 'cherry-pick'. */
+  /** Subset of aheadIds not ready for this hop: extras coming along to staging, or cherry-pick-outs before main. */
   blockingIds: string[]
   /** On `to`, missing on `from`. */
   backSyncIds: string[]

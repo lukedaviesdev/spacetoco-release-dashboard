@@ -37,7 +37,7 @@ const gitItem = (id: string, kind: Item['kind'] = 'ticket'): Item => ({
   prs: [],
   presence: { app: { develop: 'merged' } },
   hotfix: false,
-  warnings: kind === 'untracked' ? ['untracked'] : [],
+  warnings: [],
 });
 
 describe('pickSprint', () => {
@@ -134,6 +134,13 @@ describe('releases', () => {
   it('picks the earliest unreleased version as current', () => {
     expect(currentReleaseOf(releases)).toBe('2.0.0');
     expect(currentReleaseOf([])).toBeNull();
+    expect(currentReleaseOf([{
+      name: 'Rolling Hotfixes',
+      released: false,
+    }, {
+      name: '3.0.0',
+      released: false,
+    }])).toBe('3.0.0');
   });
 });
 
@@ -162,7 +169,6 @@ describe('applyJira', () => {
 
   it('flags keys Jira does not know', () => {
     expect(byId.get('DEV-404')!.invalidKey).toBe(true);
-    expect(byId.get('DEV-404')!.warnings).toEqual(['invalid-key']);
   });
 
   it('leaves untracked items alone', () => {

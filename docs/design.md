@@ -7,6 +7,8 @@ Goal: answer three questions at a glance, before reading any ticket:
 
 Users: devs, QA, PMs.
 
+**The headline signal is work coming along when it shouldn't**: `merge-with-extras` on develop→staging (extras about to reach staging), `cherry-pick` on staging→main, and the per-ticket `extra-on-staging` warning (work already on staging that must not go to main). `status-mismatch` has two severities the UI should show differently: **Released but not on main** is serious (Jira says it shipped and it didn't; 8 on day one), while **on main but not Released** is quiet Jira housekeeping (27 on day one). The UI tells them apart from the status. The staging→main list should split "shouldn't be here" (`extra-on-staging`) from "still testing" (in the release, not Done). These get the most visual weight; in-sync and clean hops should recede.
+
 ## Direction: transit map header + well-plate detail
 
 Chosen from three sketched directions (transit map, departure board, well plate). The user loved the **transit map as the header** and the **wells for the detail**.

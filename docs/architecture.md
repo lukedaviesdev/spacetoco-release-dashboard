@@ -96,28 +96,41 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 - Versions via `/rest/api/3/project/{key}/versions`.
 - **Current release** = earliest unreleased fixVersion (by `releaseDate`, then name). Selectable in the UI. Versions are marked released in Jira when they ship.
 - **Done** = status category `done`, not status names.
+- **Status lifecycle vs branches** (the team's workflow): **In testing** while the work is on staging being tested manually → **Done** once testing passes (ready for main) → **Released** once merged to main. Done and Released are both in the `done` category, which is what staging→main requires. Real statuses are numbered, e.g. `(5) Ready for Testing`, `(6) In testing`, `(7) Done`, `(8) READY TO RELEASE`, `RELEASED`.
 - Items are **grouped by fixVersion**; sprint is shown as a chip on each row for readability, and is a filter.
 - Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells) **unless they're Done**. A Done ticket with no work in either repo is a legacy ticket or work committed under other keys, and is dropped (`dropDoneWithoutCode`). This covers "future sprints" without flooding a release with old tickets.
 
 ## Verdict rules
 
-Computed per repo, per hop `A→B`, over the git window. Each repo's develop→staging and staging→main hops use the release rules.
+Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `judge`). It lives in `shared/` so the snapshot precomputes verdicts for the current release, and the app can recompute them when another release is picked. Computed per repo, per hop `A→B`.
+
+**Ahead / back-sync.** Each item's presence on a branch ranks `none` < `partial` < `merged` = `picked`. The item is *ahead* on `A→B` when A ranks higher than B, and needs a *back-sync* when B ranks higher than A. Two `partial`s can't be compared, so they're neither. Items with no work in the repo are ignored for its hops.
+
+**Ready** = its fixVersions include the selected release **or a rolling version** (`ROLLING_VERSIONS`: "Rolling Hotfixes", which ships with whatever release is next and is never the current release). Going to main also needs it **Done**:
+- `develop→staging`: in the release, any status. Staging is where release work gets tested.
+- `staging→main`: in the release **and Done**. Anything else on staging is what gets cherry-picked out before main. This is the gate that matters.
 
 | Hop | Verdict | Condition |
 |---|---|---|
-| `develop→staging`, `staging→main` | `in-sync` | nothing on A missing from B |
-| | `clean` | every item ahead on A is in the selected release **and** Done |
-| | `cherry-pick` | some items ahead on A are not in the release or not Done (listed) |
-| `main→demo`, `main→main-uk`, `main-uk→demo-uk` | `in-sync` / `sync` | `sync` = N items on A not yet on B |
-| any hop, reverse | `back-sync` | items on B missing from A, e.g. hotfixes on main not on develop. Reported alongside the forward verdict, not instead of it |
+| `develop→staging` (each repo) | `in-sync` | nothing ahead |
+| | `clean` | everything coming over is in the release |
+| | `merge-with-extras` | develop still merges whole, but work outside the release comes along (`blockingIds`). It'll show as cherry-pick-outs at staging→main. Untracked work always counts as extra. |
+| `staging→main` (each repo) | `in-sync` / `clean` | nothing ahead / everything ahead is in the release and Done |
+| | `cherry-pick` | items on staging that aren't in the release and Done (`blockingIds`): cherry-pick the rest to main, or hold these back |
+| app `main→demo`, `main→main-uk`, `main-uk→demo-uk` | `in-sync` / `sync` | `sync` = N items ahead |
+| every hop | `backSyncIds` | reported alongside the forward verdict |
 
-Warnings (item-level, shown as badges and counted in the header):
-- In the selected release but not on `develop` yet.
-- Done with no fixVersion.
-- Invalid ticket key.
-- Untracked change (no ticket key).
+**Warnings** (`computeWarnings` is their only owner):
 
-`partial` presence counts as "missing" for verdicts.
+| Warning | When |
+|---|---|
+| `extra-on-staging` | on staging ahead of main but not in the selected release (or a rolling version), whatever its status. It must not go to main. Unlike staging→main's `blockingIds`, this excludes release work that's only still being tested. |
+| `not-on-develop` | in the selected release, but not fully on develop in every repo it has work in (or no work anywhere yet) |
+| `missed-release` | every non-rolling fixVersion has shipped, but the work isn't fully on main. Either the fixVersion is stale or the work missed its release. It still blocks, so nothing goes out without being re-approved. |
+| `status-mismatch` | Jira's lifecycle disagrees with the code: status is Released (matched by name, `/\breleased\b/i`, because Done and Released share the `done` category) but the work isn't fully on main, **or** it's fully on main but not Released |
+| `done-no-fixversion` | Done with no fixVersion |
+| `invalid-key` | key not found in Jira |
+| `untracked` | no ticket key |
 
 ## Snapshot contract
 

@@ -35,6 +35,13 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Done tickets with no code anywhere are noise, not missing work.** Drop them; only warn about release tickets that aren't Done yet. The user doesn't track legacy tickets.
   **Why:** 27.3.0 carried ~60 legacy Casual Bookings tickets with no commits under their keys. (Phase 2, user decision)
 
+- **Generate fixture verdicts from the engine, and test that they agree.** Hand-computed hops were wrong twice (Phase 0's fixture missed a `partial` being ahead). `shared/utils/verdicts.test.ts` now fails if fixture and engine disagree.
+  **Why:** Phase 3's first run flagged main→demo as `sync`, not the fixture's `in-sync`. (Phase 3)
+- **Anything the snapshot CLI imports must use explicit `.ts` import paths, `shared/` included.** Vitest resolves extensionless imports and plain Node doesn't, so tests passed while the CLI would crash. `scripts/node-imports.test.ts` guards it. (Phase 3)
+- **Warnings have one owner: `computeWarnings`.** Earlier phases set some warnings inline, which would have drifted from the release-dependent ones. (Phase 3)
+
+- **Model the team's actual release process, not a generic one.** develop always merges into staging whole and gets tested there; the only cherry-picking is out of staging before main. So develop→staging needs only release membership and reports `merge-with-extras`, never `cherry-pick`; staging→main needs release + Done. (Phase 3, user correction ×2)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
@@ -56,3 +63,5 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
 - **No git auth switching is needed until Phase 6.** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
+- **`gh pr edit` can fail on a Projects (classic) GraphQL error.** Update PR bodies with `gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -F body=@file` instead. (Phase 3)
+- **Don't use `git stash` for quick experiments.** `git stash -- <untracked file>` stashes nothing, and a following `stash drop` would drop someone else's stash. Edit and revert the file directly. (Phase 3)

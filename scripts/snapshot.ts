@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Item, RepoId, Snapshot } from '../shared/types/snapshot.ts';
 import { REPOS } from '../shared/utils/snapshot.ts';
+import { judge } from '../shared/utils/verdicts.ts';
 import { addSyncedPresence, mergeItems, readGit } from './lib/git.ts';
 import { applyPrs, readPrs, rekeyByPrTitle, type PrDetails } from './lib/github.ts';
 import { applyJira, dropDoneWithoutCode, readJira } from './lib/jira.ts';
@@ -95,14 +96,20 @@ const before = items.length;
 items = dropDoneWithoutCode(items);
 if (before > items.length) log(`Dropped ${before - items.length} Done tickets with no code in either repo.`);
 
+const judged = judge(items, currentRelease, releases);
+
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),
   heads,
   releases,
   currentRelease,
-  items,
-  hops: [],
+  items: judged.items,
+  hops: judged.hops,
 };
 
 writeFileSync(values.out, `${JSON.stringify(snapshot, null, 2)}\n`);
-log(`Wrote ${items.length} items to ${values.out} (verdicts: Phase 3).`);
+for (const hop of judged.hops) {
+  const back = hop.backSyncIds.length ? `, ${hop.backSyncIds.length} to back-sync` : '';
+  log(`  ${hop.repo} ${hop.from}→${hop.to}: ${hop.verdict} (${hop.aheadIds.length} ahead, ${hop.blockingIds.length} blocking${back})`);
+}
+log(`Wrote ${items.length} items to ${values.out}, verdicts for ${currentRelease ?? 'no release'}.`);

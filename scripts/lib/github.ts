@@ -51,7 +51,6 @@ export const rekeyByPrTitle = (items: Item[], projects: string[]): Item[] => {
       ...item,
       id: key,
       kind: 'ticket',
-      warnings: item.warnings.filter((w) => w !== 'untracked'),
     };
     const ticket = byId.get(key);
     byId.set(key, ticket ? mergeItems(ticket, asTicket) : asTicket);

@@ -30,6 +30,10 @@
       "name": "27.4.0",
       "released": false,
       "releaseDate": "2026-10-29"
+    },
+    {
+      "name": "Rolling Hotfixes",
+      "released": false
     }
   ],
   "currentRelease": "27.3.0",
@@ -228,7 +232,9 @@
         }
       },
       "hotfix": false,
-      "warnings": []
+      "warnings": [
+        "extra-on-staging"
+      ]
     },
     {
       "id": "DEV-1200",
@@ -238,7 +244,7 @@
         "status": "Done",
         "statusCategory": "done",
         "fixVersions": [
-          "27.2.2"
+          "Rolling Hotfixes"
         ],
         "sprint": "Sprint 40",
         "assignee": "Minh Tran"
@@ -274,7 +280,9 @@
         }
       },
       "hotfix": true,
-      "warnings": []
+      "warnings": [
+        "status-mismatch"
+      ]
     },
     {
       "id": "app-pr-1066",
@@ -304,6 +312,46 @@
       "hotfix": true,
       "warnings": [
         "untracked"
+      ]
+    },
+    {
+      "id": "DEV-1290",
+      "kind": "ticket",
+      "title": "Calendar overlap on recurring bookings",
+      "jira": {
+        "status": "RELEASED",
+        "statusCategory": "done",
+        "fixVersions": [
+          "27.2.2"
+        ],
+        "sprint": "Sprint 40",
+        "assignee": "Hana Lee"
+      },
+      "prs": [
+        {
+          "repo": "app",
+          "number": 1101,
+          "headRef": "DEV-1290-calendar-overlap",
+          "base": "develop",
+          "title": "Fix calendar overlap",
+          "author": "hana-lee",
+          "mergedAt": "2026-09-18T05:00:00Z"
+        }
+      ],
+      "presence": {
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "warnings": [
+        "missed-release",
+        "status-mismatch"
       ]
     },
     {
@@ -340,6 +388,7 @@
       },
       "hotfix": false,
       "warnings": [
+        "extra-on-staging",
         "done-no-fixversion"
       ]
     },
@@ -371,6 +420,7 @@
       },
       "hotfix": true,
       "warnings": [
+        "extra-on-staging",
         "invalid-key"
       ]
     },
@@ -417,11 +467,14 @@
       "repo": "app",
       "from": "develop",
       "to": "staging",
-      "verdict": "clean",
+      "verdict": "merge-with-extras",
       "aheadIds": [
-        "DEV-1189"
+        "DEV-1189",
+        "DEV-1290"
       ],
-      "blockingIds": [],
+      "blockingIds": [
+        "DEV-1290"
+      ],
       "backSyncIds": [
         "DEV-1200"
       ]
@@ -433,14 +486,14 @@
       "verdict": "cherry-pick",
       "aheadIds": [
         "DEV-1314",
-        "DEV-973",
         "DEV-1113",
+        "DEV-973",
         "DEV-1325",
         "DEV-11940"
       ],
       "blockingIds": [
-        "DEV-973",
         "DEV-1113",
+        "DEV-973",
         "DEV-1325",
         "DEV-11940"
       ],
@@ -452,8 +505,10 @@
       "repo": "app",
       "from": "main",
       "to": "demo",
-      "verdict": "in-sync",
-      "aheadIds": [],
+      "verdict": "sync",
+      "aheadIds": [
+        "DEV-11940"
+      ],
       "blockingIds": [],
       "backSyncIds": []
     },
@@ -463,7 +518,8 @@
       "to": "main-uk",
       "verdict": "sync",
       "aheadIds": [
-        "app-pr-1066"
+        "app-pr-1066",
+        "DEV-11940"
       ],
       "blockingIds": [],
       "backSyncIds": []
@@ -481,7 +537,7 @@
       "repo": "api",
       "from": "develop",
       "to": "staging",
-      "verdict": "cherry-pick",
+      "verdict": "merge-with-extras",
       "aheadIds": [
         "DEV-973"
       ],

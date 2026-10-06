@@ -173,7 +173,6 @@ describe('readGit on a scripted repo', () => {
   it('keeps untracked PRs as their own item', () => {
     const item = items.get('app-pr-8')!;
     expect(item.kind).toBe('untracked');
-    expect(item.warnings).toEqual(['untracked']);
     expect(presence('app-pr-8')).toBe('none none merged none none none');
   });
 

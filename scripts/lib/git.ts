@@ -57,8 +57,11 @@ export function mergeItems(a: Item, b: Item): Item {
 }
 
 /**
- * Tickets whose key appears in a repo's shared history but have no window work there are fully released in that
- * repo: mark them merged on all its branches. Covers Jira-only tickets and tickets still open in the other repo.
+ * A key in a repo's shared history means some of that ticket's work is already on every branch there.
+ * - No window work in the repo: it's fully released there, so merged on every branch (Jira-only tickets, or tickets
+ *   still open in the other repo).
+ * - Window work too (a ticket shipped once, then got another PR): branches missing the new work hold only part of the
+ *   ticket, so `none` becomes `partial`.
  */
 export function addSyncedPresence(items: Item[], syncedKeys: Partial<Record<RepoId, string[]>>): Item[] {
   const synced = REPOS.map((r) => ({
@@ -66,13 +69,17 @@ export function addSyncedPresence(items: Item[], syncedKeys: Partial<Record<Repo
     keys: new Set(syncedKeys[r.id] ?? []),
   }));
   return items.map((item) => {
-    const add = synced.filter(({ repo, keys }) => item.kind === 'ticket' && !item.presence[repo.id] && keys.has(item.id));
+    const add = synced.filter(({ keys }) => item.kind === 'ticket' && keys.has(item.id));
     if (!add.length) return item;
     return {
       ...item,
       presence: {
         ...item.presence,
-        ...Object.fromEntries(add.map(({ repo }) => [repo.id, Object.fromEntries(repo.branches.map((b) => [b, 'merged']))])),
+        ...Object.fromEntries(add.map(({ repo }) => {
+          const window = item.presence[repo.id];
+          const at = (b: Branch) => (window ? mergePresence(window[b] ?? 'none', 'merged') : 'merged');
+          return [repo.id, Object.fromEntries(repo.branches.map((b) => [b, at(b)]))];
+        })),
       },
     };
   });
@@ -238,7 +245,7 @@ export function readGit({ path, repo, remote = 'origin/', projects = DEFAULT_PRO
     return copies.get(change)!.some(sha => on.has(sha)) ? 'picked' : 'missing';
   };
 
-  // ponytail: presence only counts window commits; an item's commits already on every branch are ignored.
+  // Only window commits count here; work already on every branch is folded in by key in addSyncedPresence.
   const items: Item[] = [...groups].map(([id, g]) => {
     const prs = [...g.prs.values()];
     const changes = [...new Set([...g.commits].map(c => changeOf.get(c)!))];

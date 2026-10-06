@@ -26,6 +26,17 @@ The branch topology already *is* a rail network: a trunk `develop → staging �
 - Warning counts (untracked, invalid key, done without fixVersion, not on develop) as chips under the map.
 - Must reflow on narrow screens: it's an SVG with a viewBox, laid out from the topology, not from hand-placed coordinates.
 
+### What Phase 5 built
+
+- **The map is the first thing on the page**, laid out from `REPOS` by `layoutTransit` (`utils/transit.ts`): column = hops from develop, and a branching hop starts a new row. Both repos stack, aligned by column.
+- **Tracks carry the verdict** (`signalOf`): red "hold back N" (cherry-pick), amber "N extras" (merge-with-extras), green "clean · N", ink "N to sync", and a thin muted line for in-sync. Back-syncs are a fine dashed blue return line under the track, labelled "← N back".
+- **Every track with something behind it is a button** (click, Enter or Space). It sets the `hop` URL filter so the board shows exactly those tickets; a "Showing … / Show all" caption clears it.
+- **Header band:** the map on the left, the problem counts and legend in the right-hand gutter.
+- **Phones:** below 700px the map turns vertical (`useMediaQuery`) and labels move to the side.
+- **Warning chips under the map** were dropped. The summary counts already do that job.
+- **Critique:** two rounds scored 5 → 6. The loop stopped there, given Phase 4's plateau.
+- **Future option** (critic idea, not built): put the map's stations directly above the matrix columns, so the map becomes the table's header and the branch names appear once.
+
 ### Detail: well plate
 
 - One row per item. Six app wells (`develop, staging, main, demo, main-uk, demo-uk`), then three api wells (`develop, staging, main`), visually grouped by repo. A repo the item has no work in shows no wells rather than empty ones, so a backend-only ticket reads differently from an unmerged one.

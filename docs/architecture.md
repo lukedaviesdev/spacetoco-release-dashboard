@@ -31,7 +31,7 @@ Forward hops: app `develop→staging`, `staging→main`, `main→demo`, `main→
 
 - **All logic runs in the snapshot script.** The frontend only renders `snapshot.json`.
 - **Locally:** `pnpm snapshot` (reads `~/Dev/spacetoco-app` and `~/Dev/spacetoco-api`) then `pnpm dev`. No server, no tokens needed for the git-only part.
-- **Repo:** built in `lukedaviesdev/spacetoco-release-dashboard` (personal, private) through Phase 5, then moved to the `spacetoco` org before Phase 6, so the Action runs on the org's minutes and secrets.
+- **Repo:** built in `lukedaviesdev/spacetoco-release-dashboard` (personal, private) through Phase 6, then moved to the `spacetoco` org before Phase 7 (hosting), so the Action runs on the org's minutes and secrets.
 - **Hosted:** a GitHub Action in *this* repo checks out both repos with a read-only PAT, runs the same script, runs `nuxt generate` and deploys to Cloudflare Pages. Cloudflare Access sits in front of it as the login. One code path for local and hosted.
 - **No changes to either repo, ever.** Triggers are cron + manual `workflow_dispatch` only (a push trigger would need a workflow in the monorepo).
 - Shared types and pure logic live in `shared/` (Nuxt 4 convention), so the script and the app import the same `Snapshot` types.
@@ -85,6 +85,8 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 | `partial` | some changes present, some missing |
 | `none` | none present |
 
+**Shipped once, then more work.** If a ticket's key is in a repo's shared history *and* it has window work there (shipped via one PR, then another PR merged to develop), branches missing the new work show `partial`, not `none` (DEV-1237: #1115 shipped, #1109 develop-only).
+
 **Already released everywhere.** Work on every branch of a repo is outside the window, so the engine also lists ticket keys found in each repo's shared history (`syncedKeys`). A ticket with a synced key and no window work in that repo is marked `merged` on all of that repo's branches. Without this, a released ticket in an unreleased fixVersion would look like it's on no branch.
 
 **Releases vs hotfixes.** No git tags exist. A PR's base is the most upstream env branch whose first-parent history contains its merge commit. An item is a **hotfix** if any of its PRs merged straight into a branch other than `develop` (e.g. `DEV-1314` → staging, `DEV-1200-space-loading-bug-main` → main).
@@ -99,6 +101,26 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 - **Status lifecycle vs branches** (the team's workflow): **In testing** while the work is on staging being tested manually → **Done** once testing passes (ready for main) → **Released** once merged to main. Done and Released are both in the `done` category, which is what staging→main requires. Real statuses are numbered, e.g. `(5) Ready for Testing`, `(6) In testing`, `(7) Done`, `(8) READY TO RELEASE`, `RELEASED`.
 - Items are **grouped by fixVersion**; sprint is shown as a chip on each row for readability, and is a filter.
 - Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells) **unless they're Done**. A Done ticket with no work in either repo is a legacy ticket or work committed under other keys, and is dropped (`dropDoneWithoutCode`). This covers "future sprints" without flooding a release with old tickets.
+
+## Model v2 (planned, Phase 6; decided 2026-10-06)
+
+Settled in a grilling session after a GitHub × git × Jira audit. It replaces the commit-level model where they differ.
+
+**How the team actually ships.** QA tests on **develop** (dev environment). **Staging is a second pass.** App staging is mostly built **per ticket** (PRs into staging, `release/*` branches); develop → staging has merged as a whole only once since August. api merges develop → staging regularly. Hotfixes go out as **one PR per env branch**.
+
+| Topic | Decision |
+|---|---|
+| Unit of truth | **PRs**: a PR is on a branch if its merge commit is contained in it (`merge-base --is-ancestor`) and it hasn't been reverted there. Commit-level matching only for work pushed without a PR. Scope: PRs on some env branch but not all. |
+| Ticket ↔ PR | Keys from PR **title and branch** (many-to-many; one PR can carry several tickets); commit messages as fallback |
+| Wanted | fixVersion (the Confluence release page is a live Jira query `fixversion = "<release>"`) **or** Rolling Hotfixes, **and status ≥ Done** |
+| develop → staging | **safe** if everything that would come along is wanted; otherwise **to bring up individually** (wanted, on develop, not on staging) + **would wrongly come along** |
+| staging → main | **safe**, or a **hold-back** list; not-Done release tickets labelled "not tested on dev". READY TO RELEASE = passed staging (✓), but it's often set late, so "awaiting second pass" is informational only |
+| Multi-PR tickets | on a branch if any PR is; **follow-up** (a PR merged after the ticket reached the branch, not there yet) is a low-priority note; PRs into different bases within ~24h are **twins** (one change) |
+| Off the release path (all PRs touch only these) | `deployments/**`: released when merged to develop (infra applies from develop). `packages/testing/**`, `.github/**`: never ship. `packages/backend/**`: not live yet (new monorepo). Exempt from verdicts and status checks. |
+| Non-ticket PRs (by branch name) | carriers (`release/*`, `mini-release`, `sync/*`, `chore/cherry-pick-*`): hidden, commits credited by commit message. Conflict fixes (`*conflict*`): hidden, non-blocking. Revert chores and `revert-*`: drive revert detection. `dependabot/*`: shown, non-blocking. Anything else: **real untracked work, blocking**. |
+| Branch convention (flag, low priority) | `<KEY>-<slug>[-main\|-staging\|-develop]`; key exists in Jira; title starts `[<KEY>]` matching the branch; non-ticket branches use `release/*`, `sync/*`, `chore/*`, `dependabot/*`, `revert-*` or env→env |
+
+Audit facts behind it: 264 merged PRs since 1 Aug; DEV-1200 had 12 PRs; 7 PRs had different title and branch keys; 6 PRs were reverted on staging on 3 Aug; 8 tickets reached main while Jira said untested (DEV-688/689/690/692 via the 19 Aug develop → staging merge, BUG-554, DEV-1112/1113, api DEV-1126).
 
 ## Verdict rules
 
@@ -127,6 +149,7 @@ Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `ju
 | `extra-on-staging` | on staging ahead of main but not in the selected release (or a rolling version), whatever its status. It must not go to main. Unlike staging→main's `blockingIds`, this excludes release work that's only still being tested. |
 | `not-on-develop` | in the selected release, but not fully on develop in every repo it has work in (or no work anywhere yet) |
 | `missed-release` | every non-rolling fixVersion has shipped, but the work isn't fully on main. Either the fixVersion is stale or the work missed its release. It still blocks, so nothing goes out without being re-approved. |
+| `status-mismatch` (UI splits it) | **Released, not on main** (none of it on main: danger) vs **Released, partly on main** (it shipped, often as a hotfix, and only later commits are develop-only: caution), via `releasedGap`. |
 | `status-mismatch` | Jira's lifecycle disagrees with the code: status is Released (matched by name, `/\breleased\b/i`, because Done and Released share the `done` category) but the work isn't fully on main, **or** it's fully on main but not Released |
 | `done-no-fixversion` | Done with no fixVersion |
 | `invalid-key` | key not found in Jira |

@@ -17,17 +17,28 @@ export interface Group {
 const RELEASED_STATUS = /\breleased\b/i;
 
 /**
- * - danger: on staging but outside the release, or Jira says Released and it isn't on main
+ * Jira says Released but main doesn't hold all the work: 'none' = nothing of it on main (Jira is wrong, or it never
+ * shipped); 'partial' = it shipped (often as a hotfix) and only later commits, like follow-up tests, are develop-only.
+ * null when status and branches agree.
+ */
+export const releasedGap = (item: Pick<Item, 'warnings' | 'presence' | 'jira'>): 'none' | 'partial' | null => {
+  if (!item.warnings.includes('status-mismatch') || !RELEASED_STATUS.test(item.jira?.status ?? '')) return null;
+  const onMain = Object.values(item.presence).some((branches) => branches?.main && branches.main !== 'none');
+  return onMain ? 'partial' : 'none';
+};
+
+/**
+ * - danger: on staging but outside the release, or Jira says Released and none of it is on main
  * - return: needs a back-sync (on a downstream branch, missing upstream)
  * - caution: would come along as an extra into staging, missed its release, or in the release but not on develop
  */
 export const rowState = (item: Item, hops: Hop[]): RowState => {
   const w = item.warnings;
-  const releasedNotOnMain = w.includes('status-mismatch') && RELEASED_STATUS.test(item.jira?.status ?? '');
-  if (w.includes('extra-on-staging') || releasedNotOnMain) return 'danger';
+  const gap = releasedGap(item);
+  if (w.includes('extra-on-staging') || gap === 'none') return 'danger';
   if (hops.some((h) => h.backSyncIds.includes(item.id))) return 'return';
   const extraIntoStaging = hops.some((h) => h.from === 'develop' && h.blockingIds.includes(item.id));
-  if (extraIntoStaging || w.includes('missed-release') || w.includes('not-on-develop')) return 'caution';
+  if (extraIntoStaging || gap === 'partial' || w.includes('missed-release') || w.includes('not-on-develop')) return 'caution';
   return 'ink';
 };
 

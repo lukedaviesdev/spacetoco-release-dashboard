@@ -69,7 +69,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 - [x] Unit tests: table-driven, one case per verdict and warning rule, including `partial` counting as missing
 
 ## Phase 4: Wells view (+ design direction, critic loop)
-**Status:** In progress (built, PR open for user check)
+**Status:** Done
 **Docs:** Vuetify data-table (grouping, slots), theming; Pinia setup stores; `@vueuse/router` `useRouteQuery`; `design.md`
 
 - Fill in palette / type / well encoding in `design.md` first, then run `/design-system` to produce tokens and map them onto the Vuetify theme.
@@ -85,7 +85,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 - [x] Unit tests: store getters (filtering, grouping order)
 
 ## Phase 5: Transit map header (+ critic loop)
-**Status:** Not started
+**Status:** In progress (built, PR open for user check)
 **Docs:** VueUse `useTimeAgo`; SVG `viewBox`; Vuetify tooltips/chips; `design.md`
 
 - SVG map built from the topology; segment verdict signals; back-sync tracks; click segment to set store hop filter; staleness label; warning chips.
@@ -93,12 +93,29 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 
 **Done when**
 - [ ] From the header alone the user can say whether `staging→main` is mergeable and whether a back-sync is needed
-- [ ] Clicking a segment filters the wells; works by keyboard
-- [ ] Reflows at phone width
-- [ ] Critic ≥9/10 (or plateau noted)
-- [ ] Unit tests: verdict → segment state mapping
+- [x] Clicking a segment filters the wells; works by keyboard
+- [x] Reflows at phone width (vertical map below 700px)
+- [x] Critic ≥9/10 (or plateau noted): 5 → 6 over two rounds, stopped per the Phase 4 plateau
+- [x] Unit tests: verdict → segment state mapping (`utils/transit.test.ts`), plus topology layout
 
-## Phase 6: Hosting
+## Phase 6: PR-based engine
+**Status:** Not started
+**Docs:** GitHub REST pulls, git `merge-base --is-ancestor`, `git revert` trailers; `architecture.md` "Model v2"
+
+Why: a GitHub × git × Jira audit (2026-10-06) showed the commit-level model doesn't match how the team ships. App staging is built per ticket, hotfixes fan out as one PR per branch, PR title and branch keys disagree, reverts exist, and some paths never ride the release branches. The decisions are in `architecture.md` "Model v2".
+
+- Docs first: move "Model v2" into the main rules, update verdict and warning tables.
+- Rewrite `scripts/lib/git.ts` around PRs: PR list (GitHub), merge-commit ancestry per branch, revert detection, PR ↔ ticket many-to-many, path classification, PR kinds (ticket / carrier / conflict / revert chore / dependabot / untracked), follow-ups and same-day twins.
+- Verdicts: develop→staging `in-sync` / `safe` / `not-safe` (to bring up individually + would wrongly come along); staging→main `in-sync` / `safe` / `hold-back` (with "not tested on dev"); READY TO RELEASE as "passed staging".
+- Warnings: follow-up (low), convention (low), plus existing.
+- Map and board labels updated to the new verdicts.
+
+**Done when**
+- [ ] Temp-repo tests for each pattern: twins, fan-out hotfix, follow-up, revert and re-revert, carrier PR, conflict PR, exempt paths, title/branch key mismatch, multi-ticket PR
+- [ ] Today's audit cases come out right: DEV-1162 (Done, develop only, healthy), DEV-1194/DEV-1237 (follow-up), DEV-874/DEV-1336/DEV-404/414/425 (exempt), DEV-1159/DEV-1260 (genuine), DEV-688/689/690/692/BUG-554 (untested on main)
+- [ ] The user agrees the verdicts on real data match their own reading
+
+## Phase 7: Hosting
 **Status:** Not started
 **Docs:** GitHub Actions `schedule` + `workflow_dispatch`, `actions/checkout` (other repo + token), `cloudflare/wrangler-action@v4`, Cloudflare Pages, Cloudflare Access self-hosted app
 

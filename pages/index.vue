@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Warning } from '~~/shared/types/snapshot';
+import type { Item, Warning } from '~~/shared/types/snapshot';
 import { REPOS } from '~~/shared/utils/snapshot';
 
 const store = useSnapshotStore();
@@ -30,20 +30,27 @@ const NOTES: Partial<Record<Warning, [string, string]>> = {
   'invalid-key': ['Unknown key', 'Key not found in Jira'],
   'untracked': ['No ticket', 'No ticket key on the branch, commits or PR title'],
 };
-const RELEASED = /\breleased\b/i;
-type Flaggable = { warnings: Warning[], jira?: { status: string } };
-const releasedNotOnMain = (item: Flaggable) => item.warnings.includes('status-mismatch')
-  && RELEASED.test(item.jira?.status ?? '');
-const problemsOf = (item: Flaggable) => [
-  ...item.warnings.filter((w) => PROBLEMS[w]).map((w) => PROBLEMS[w]!),
-  ...(releasedNotOnMain(item) ? [{
+type Flaggable = Pick<Item, 'warnings' | 'presence' | 'jira'>;
+const GAP_FLAGS = {
+  none: {
     text: 'Released, not on main',
     color: 'signal-danger',
-  }] : []),
-];
+  },
+  partial: {
+    text: 'Released, partly on main',
+    color: 'signal-caution',
+  },
+};
+const problemsOf = (item: Flaggable) => {
+  const gap = releasedGap(item);
+  return [
+    ...item.warnings.filter((w) => PROBLEMS[w]).map((w) => PROBLEMS[w]!),
+    ...(gap ? [GAP_FLAGS[gap]] : []),
+  ];
+};
 // On main but not Released is Jira housekeeping: counted in the group header and hinted on the status,
 // not flagged per row.
-const notMarkedReleased = (item: Flaggable) => item.warnings.includes('status-mismatch') && !releasedNotOnMain(item);
+const notMarkedReleased = (item: Flaggable) => item.warnings.includes('status-mismatch') && !releasedGap(item);
 const notesOf = (item: Flaggable): [string, string][] => item.warnings
   .filter((w) => w !== 'status-mismatch' && NOTES[w])
   .map((w) => NOTES[w]!);
@@ -129,10 +136,11 @@ const groupBy = [{
 }];
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const groupLabel = (key: string) => key.split('|').slice(1).join('|');
-/** '(9) RELEASED' → 'Released': Jira mixes numbering and case. */
+/** '(9) RELEASED' → 'Released': Jira mixes numbering and case. Only shouting is recased, so 'In QA' survives. */
 const statusText = (status?: string) => {
   const s = status?.replace(/^\(\d+\)\s*/, '');
-  return s ? s[0]!.toUpperCase() + s.slice(1).toLowerCase() : '—';
+  if (!s) return '–';
+  return s === s.toUpperCase() ? s[0]! + s.slice(1).toLowerCase() : s;
 };
 const shortName = (name?: string) => {
   const [first, ...rest] = (name ?? '').split(' ');
@@ -151,7 +159,10 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
     />
     <template v-else-if="store.snapshot">
       <board-toolbar />
-      <board-summary />
+      <div class="board__header">
+        <transit-map />
+        <board-summary />
+      </div>
 
       <v-data-table
         :group-by="groupBy"
@@ -204,7 +215,7 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
             rel="noopener"
             target="_blank"
           >{{ item.id }}</a>
-          <span v-else class="key key--untracked">—</span>
+          <span v-else class="key key--untracked">–</span>
         </template>
 
         <template #[`item.title`]="{ item }">
@@ -287,6 +298,19 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
 }
 
 .board__table { background: transparent; }
+
+/* One header band: the map, with the problem counts and legend in the right-hand gutter. */
+.board__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+  gap: 16px 40px;
+  align-items: start;
+  padding: 16px 0 8px;
+}
+
+@media (max-width: 1100px) {
+  .board__header { grid-template-columns: minmax(0, 1fr); }
+}
 .board__table :deep(td.fit) { white-space: nowrap; }
 .board__table :deep(th) { white-space: nowrap; }
 

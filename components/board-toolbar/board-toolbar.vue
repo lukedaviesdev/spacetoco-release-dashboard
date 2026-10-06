@@ -38,6 +38,7 @@ const filterProps = {
       <v-select
         :items="store.options.releases"
         :model-value="store.release"
+        :style="{ width: `${(store.release?.length ?? 8) * 0.95 + 3}rem` }"
         aria-label="Release"
         class="toolbar__release"
         density="compact"
@@ -85,7 +86,7 @@ const filterProps = {
   border-bottom: 1px solid var(--rule);
 }
 
-.toolbar__title { display: flex; flex-direction: column; min-width: 280px; }
+.toolbar__title { display: flex; flex-direction: column; }
 .toolbar__release :deep(.v-field__append-inner) { padding-top: 6px; margin-left: -4px; }
 
 .toolbar__release :deep(.v-field__input),
@@ -97,8 +98,8 @@ const filterProps = {
   padding-top: 0;
 }
 
-.toolbar__filters { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
-.toolbar__filter { flex: 0 1 150px; }
+.toolbar__filters { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 360px; }
+.toolbar__filter { flex: 0 0 auto; width: 130px; }
 .toolbar__filter :deep(.v-field__input) { padding-top: 0; min-height: 0; }
 .toolbar__age { margin: 0 0 6px; color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
 .toolbar__age--stale { color: var(--staleness-old); }

@@ -43,7 +43,9 @@ describe('release hops (develop→staging, staging→main)', () => {
   it.each([
     ['nothing ahead', [item('A', 'mmm...')], 'in-sync', [], []],
     ['ahead and ready', [item('A', 'm.....')], 'clean', ['A'], []],
-    ['ahead but not Done', [item('A', 'm.....', { jira: { statusCategory: 'indeterminate' } })], 'cherry-pick', ['A'], ['A']],
+    ['ahead and in the release but not Done yet (it goes to staging to be tested)', [item('A', 'm.....', {
+      jira: { statusCategory: 'indeterminate' },
+    })], 'clean', ['A'], []],
     ['ahead but in another release', [item('A', 'm.....', { jira: { fixVersions: ['3.0.0'] } })], 'cherry-pick', ['A'], ['A']],
     ['ahead with no Jira (untracked)', [item('A', 'm.....', {
       kind: 'untracked',
@@ -60,15 +62,34 @@ describe('release hops (develop→staging, staging→main)', () => {
     expect(h.blockingIds).toEqual(blocking);
   });
 
-  it('lets Done Rolling Hotfixes through any release, but not open ones', () => {
+  it('needs Done to go from staging to main: anything else on staging gets cherry-picked out', () => {
+    const notDone = item('A', 'mm....', { jira: { statusCategory: 'indeterminate' } });
+    expect(hop([notDone], 'staging', 'main')).toMatchObject({
+      verdict: 'cherry-pick',
+      blockingIds: ['A'],
+    });
+    expect(hop([item('B', 'mm....')], 'staging', 'main').verdict).toBe('clean');
+  });
+
+  it('lets Rolling Hotfixes through any release, needing Done only on the way to main', () => {
     const rolling = (statusCategory: JiraInfo['statusCategory']) => item('A', 'm.....', {
       jira: {
         fixVersions: ['Rolling Hotfixes'],
         statusCategory,
       },
     });
-    expect(hop([rolling('done')], 'develop', 'staging').verdict).toBe('clean');
-    expect(hop([rolling('indeterminate')], 'develop', 'staging').verdict).toBe('cherry-pick');
+    expect(hop([rolling('indeterminate')], 'develop', 'staging').verdict).toBe('clean');
+    expect(hop([{
+      ...rolling('indeterminate'),
+      presence: {
+        app: {
+          develop: 'merged',
+          staging: 'merged',
+          main: 'none',
+        },
+      },
+    }], 'staging', 'main').verdict)
+      .toBe('cherry-pick');
   });
 
   it('lists ready and blocking items together when mixed', () => {

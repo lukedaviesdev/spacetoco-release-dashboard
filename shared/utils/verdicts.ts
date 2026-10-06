@@ -3,8 +3,14 @@
 import type { Branch, Hop, Item, Presence, Release, RepoId, Warning } from '../types/snapshot.ts';
 import { REPOS, ROLLING_VERSIONS } from './snapshot.ts';
 
-/** Hops judged against the release (merge vs cherry-pick); the others only report pending syncs. */
-const RELEASE_HOPS = new Set(['develop→staging', 'staging→main']);
+/**
+ * Hops judged against the release; the others only report pending syncs. Staging is where release work gets
+ * tested, so going to staging only needs the ticket in the release; going to main also needs it Done.
+ */
+const RELEASE_HOPS: Record<string, { needsDone: boolean }> = {
+  'develop→staging': { needsDone: false },
+  'staging→main': { needsDone: true },
+};
 
 /** How much of an item's work a branch holds. `partial` is less than all of it; `picked` counts as all. */
 const RANK: Record<Presence, number> = {
@@ -16,9 +22,10 @@ const RANK: Record<Presence, number> = {
 
 const rankOn = (item: Item, repo: RepoId, branch: Branch) => RANK[item.presence[repo]?.[branch] ?? 'none'];
 
-/** Done, and in the release or a rolling version: safe to go through a release hop. */
-export const isReady = (item: Item, release: string | null) => item.jira?.statusCategory === 'done'
-  && item.jira.fixVersions.some((v) => v === release || ROLLING_VERSIONS.includes(v));
+/** In the release or a rolling version (and Done, if `needsDone`): safe to go through a release hop. */
+export const isReady = (item: Item, release: string | null, needsDone: boolean) => !!item.jira
+  && item.jira.fixVersions.some((v) => v === release || ROLLING_VERSIONS.includes(v))
+  && (!needsDone || item.jira.statusCategory === 'done');
 
 /** Every repo the item has work in holds all of it on `branch`. */
 const fullyOn = (item: Item, branch: Branch) => {
@@ -32,9 +39,10 @@ export const computeHops = (items: Item[], release: string | null): Hop[] => REP
     // Ahead: `from` holds more of the item's work than `to`. Two partials can't be compared, so they're not ahead.
     const aheadIds = inRepo.filter((i) => rankOn(i, repo.id, from) > rankOn(i, repo.id, to)).map((i) => i.id);
     const backSyncIds = inRepo.filter((i) => rankOn(i, repo.id, to) > rankOn(i, repo.id, from)).map((i) => i.id);
-    const isReleaseHop = RELEASE_HOPS.has(`${from}→${to}`);
-    const blockingIds = isReleaseHop
-      ? aheadIds.filter((id) => !isReady(items.find((i) => i.id === id)!, release))
+    const releaseHop = RELEASE_HOPS[`${from}→${to}`];
+    const isReleaseHop = !!releaseHop;
+    const blockingIds = releaseHop
+      ? aheadIds.filter((id) => !isReady(items.find((i) => i.id === id)!, release, releaseHop.needsDone))
       : [];
     const verdict: Hop['verdict'] = !aheadIds.length
       ? 'in-sync'

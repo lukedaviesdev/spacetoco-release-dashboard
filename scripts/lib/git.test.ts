@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Item } from '../../shared/types/snapshot';
-import { combinePresence, extractKey, parsePrMerge, readGit, titleFromRef } from './git';
+import { addSyncedPresence, combinePresence, extractKey, mergeItems, mergePresence, parsePrMerge, readGit, titleFromRef } from './git';
 
 describe('pure helpers', () => {
   it('extracts ticket keys from branch names and subjects', () => {
@@ -37,6 +37,13 @@ describe('pure helpers', () => {
     expect(combinePresence(['missing'])).toBe('none');
   });
 
+  it('merges two items\' presence', () => {
+    expect(mergePresence('merged', 'merged')).toBe('merged');
+    expect(mergePresence('merged', 'picked')).toBe('picked');
+    expect(mergePresence('merged', 'none')).toBe('partial');
+    expect(mergePresence('none', 'none')).toBe('none');
+  });
+
   it('makes a readable placeholder title from a ref', () => {
     expect(titleFromRef('DEV-1314-Cannot-book-a-space')).toBe('Cannot book a space');
     expect(titleFromRef('cursor/dev-1113-tasks')).toBe('tasks');
@@ -48,6 +55,7 @@ describe('readGit on a scripted repo', () => {
   let repo: string;
   let items: Map<string, Item>;
   let heads: Record<string, string>;
+  let syncedKeys: string[];
 
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], {
     encoding: 'utf8',
@@ -76,6 +84,7 @@ describe('readGit on a scripted repo', () => {
     repo = mkdtempSync(join(tmpdir(), 'release-dashboard-'));
     git('init', '-q', '-b', 'main');
     commit('base.txt', 'base', 'initial');
+    commit('shared.txt', 'shared', '[DEV-100] already released everywhere');
     for (const b of ['develop', 'staging', 'demo', 'main-uk', 'demo-uk']) git('branch', b);
 
     // DEV-1: released develop → staging → main, then main → main-uk.
@@ -113,11 +122,13 @@ describe('readGit on a scripted repo', () => {
     pr(10, 'specialaccessdemo', 'develop', 'develop', [['g.txt', 'g', '[DEV-6] feedback'], ['h.txt', 'h', 'demo tweak']]);
 
     const snapshot = readGit({
-      repo,
+      path: repo,
+      repo: 'app',
       remote: '',
     });
     items = new Map(snapshot.items.map(i => [i.id, i]));
     heads = snapshot.heads;
+    syncedKeys = snapshot.syncedKeys;
   });
 
   afterAll(() => rmSync(repo, {
@@ -125,11 +136,12 @@ describe('readGit on a scripted repo', () => {
     force: true,
   }));
 
-  const presence = (id: string) => Object.values(items.get(id)!.presence).join(' ');
+  const presence = (id: string) => Object.values(items.get(id)!.presence.app!).join(' ');
   // Branch order: develop staging main demo main-uk demo-uk
 
   it('reports a short head for every branch', () => {
     expect(Object.keys(heads)).toEqual(['develop', 'staging', 'main', 'demo', 'main-uk', 'demo-uk']);
+    expect(items.get('DEV-1')!.prs[0]!.repo).toBe('app');
     expect(heads.main).toMatch(/^[0-9a-f]{7,}$/);
   });
 
@@ -141,7 +153,7 @@ describe('readGit on a scripted repo', () => {
 
   it('ignores release PRs whose head is an env branch', () => {
     expect([...items.values()].flatMap(i => i.prs.map(p => p.number))).not.toContain(2);
-    expect([...items.keys()]).not.toContain('pr-3');
+    expect([...items.keys()]).not.toContain('app-pr-3');
   });
 
   it('shows work on develop only', () => {
@@ -159,10 +171,10 @@ describe('readGit on a scripted repo', () => {
   });
 
   it('keeps untracked PRs as their own item', () => {
-    const item = items.get('pr-8')!;
+    const item = items.get('app-pr-8')!;
     expect(item.kind).toBe('untracked');
     expect(item.warnings).toEqual(['untracked']);
-    expect(presence('pr-8')).toBe('none none merged none none none');
+    expect(presence('app-pr-8')).toBe('none none merged none none none');
   });
 
   it('reports partial when only some commits reached a branch', () => {
@@ -172,10 +184,104 @@ describe('readGit on a scripted repo', () => {
   it('uses the subject key when the PR ref has none, and the PR for the rest', () => {
     expect(presence('DEV-6')).toBe('merged none none none none none');
     expect(items.get('DEV-6')!.prs.map(p => p.number)).toEqual([10]);
-    expect(items.get('pr-10')!.title).toBe('specialaccessdemo');
+    expect(items.get('app-pr-10')!.title).toBe('specialaccessdemo');
   });
 
-  it('leaves out work that is on every branch', () => {
+  it('leaves out work that is on every branch, but reports its keys as synced', () => {
     expect([...items.keys()].some(id => id.includes('initial'))).toBe(false);
+    expect(items.has('DEV-100')).toBe(false);
+    expect(syncedKeys).toEqual(['DEV-100']);
+  });
+});
+
+describe('combining items across repos', () => {
+  const item = (presence: Item['presence'], prs: Item['prs'] = []): Item => ({
+    id: 'DEV-1',
+    kind: 'ticket',
+    title: 't',
+    prs,
+    presence,
+    hotfix: false,
+    warnings: [],
+  });
+
+  it('keeps each repo\'s presence and both repos\' PRs, even with the same PR number', () => {
+    const merged = mergeItems(
+      item({
+        app: {
+          develop: 'merged',
+          staging: 'none',
+        },
+      }, [{
+        repo: 'app',
+        number: 5,
+        headRef: 'DEV-1-a',
+        base: 'develop',
+      }]),
+      item({ api: { develop: 'merged' } }, [{
+        repo: 'api',
+        number: 5,
+        headRef: 'DEV-1-b',
+        base: 'develop',
+      }]),
+    );
+    expect(merged.presence).toEqual({
+      app: {
+        develop: 'merged',
+        staging: 'none',
+      },
+      api: { develop: 'merged' },
+    });
+    expect(merged.prs.map((p) => `${p.repo}#${p.number}`)).toEqual(['app#5', 'api#5']);
+  });
+
+  it('merges presence branch by branch within the same repo', () => {
+    const merged = mergeItems(item({
+      app: {
+        develop: 'merged',
+        staging: 'merged',
+      },
+    }), item({
+      app: {
+        develop: 'none',
+        staging: 'merged',
+      },
+    }));
+    expect(merged.presence.app).toEqual({
+      develop: 'partial',
+      staging: 'merged',
+    });
+  });
+
+  it('marks a ticket merged everywhere in repos where its key is already in shared history', () => {
+    const [jiraOnly, appOnly] = addSyncedPresence(
+      [item({}), {
+        ...item({ app: { develop: 'merged' } }),
+        id: 'DEV-2',
+      }],
+      {
+        app: ['DEV-1'],
+        api: ['DEV-1', 'DEV-2'],
+      },
+    );
+    expect(jiraOnly!.presence.app).toEqual({
+      'develop': 'merged',
+      'staging': 'merged',
+      'main': 'merged',
+      'demo': 'merged',
+      'main-uk': 'merged',
+      'demo-uk': 'merged',
+    });
+    expect(jiraOnly!.presence.api).toEqual({
+      develop: 'merged',
+      staging: 'merged',
+      main: 'merged',
+    });
+    expect(appOnly!.presence.app).toEqual({ develop: 'merged' });
+    expect(appOnly!.presence.api).toEqual({
+      develop: 'merged',
+      staging: 'merged',
+      main: 'merged',
+    });
   });
 });

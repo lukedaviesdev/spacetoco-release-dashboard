@@ -9,10 +9,15 @@ await callOnce(store.load);
     <v-table v-else density="compact">
       <thead>
         <tr>
-          <th>Item</th>
-          <th>Title</th>
-          <th>fixVersion</th>
-          <th v-for="branch in BRANCHES" :key="branch">{{ branch }}</th>
+          <th rowspan="2">Item</th>
+          <th rowspan="2">Title</th>
+          <th rowspan="2">fixVersion</th>
+          <th v-for="repo in REPOS" :key="repo.id" :colspan="repo.branches.length">{{ repo.name }}</th>
+        </tr>
+        <tr>
+          <template v-for="repo in REPOS" :key="repo.id">
+            <th v-for="branch in repo.branches" :key="branch">{{ branch }}</th>
+          </template>
         </tr>
       </thead>
       <tbody>
@@ -20,7 +25,9 @@ await callOnce(store.load);
           <td>{{ item.id }}</td>
           <td>{{ item.title }}</td>
           <td>{{ item.jira?.fixVersions.join(', ') || '—' }}</td>
-          <td v-for="branch in BRANCHES" :key="branch">{{ item.presence[branch] }}</td>
+          <template v-for="repo in REPOS" :key="repo.id">
+            <td v-for="branch in repo.branches" :key="branch">{{ item.presence[repo.id]?.[branch] ?? '—' }}</td>
+          </template>
         </tr>
       </tbody>
     </v-table>

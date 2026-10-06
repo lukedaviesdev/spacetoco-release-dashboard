@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
-import type { Branch, Item, Presence, PullRequest } from '../../shared/types/snapshot.ts';
-import { BRANCHES } from '../../shared/utils/snapshot.ts';
+import type { Branch, Item, Presence, PullRequest, RepoHeads, RepoId, RepoPresence } from '../../shared/types/snapshot.ts';
+import { REPOS } from '../../shared/utils/snapshot.ts';
 
 export const DEFAULT_PROJECTS = ['DEV', 'BUG'];
 
@@ -29,6 +29,56 @@ export function combinePresence(commits: ('merged' | 'picked' | 'missing')[]): P
   return commits.includes('picked') ? 'picked' : 'merged';
 }
 
+/** Presence of two items' work combined, e.g. when an untracked PR turns out to belong to a ticket. */
+export function mergePresence(a: Presence, b: Presence): Presence {
+  if (a === 'none' && b === 'none') return 'none';
+  if (a === 'none' || b === 'none' || a === 'partial' || b === 'partial') return 'partial';
+  return a === 'merged' && b === 'merged' ? 'merged' : 'picked';
+}
+
+/**
+ * Two items for the same id combined: the same ticket found in both repos, or an untracked PR that turned out to
+ * belong to a ticket. Presence merges per repo and branch.
+ */
+export function mergeItems(a: Item, b: Item): Item {
+  const presence = { ...a.presence };
+  for (const [repo, branches] of Object.entries(b.presence) as [RepoId, RepoPresence][]) {
+    const mine = presence[repo];
+    presence[repo] = mine
+      ? Object.fromEntries(Object.entries(branches).map(([branch, p]) => [branch, mergePresence(mine[branch as Branch]!, p)]))
+      : branches;
+  }
+  return {
+    ...a,
+    prs: [...a.prs, ...b.prs.filter((pr) => !a.prs.some((p) => p.repo === pr.repo && p.number === pr.number))],
+    presence,
+    hotfix: a.hotfix || b.hotfix,
+    warnings: [...new Set([...a.warnings, ...b.warnings])],
+  };
+}
+
+/**
+ * Tickets whose key appears in a repo's shared history but have no window work there are fully released in that
+ * repo: mark them merged on all its branches. Covers Jira-only tickets and tickets still open in the other repo.
+ */
+export function addSyncedPresence(items: Item[], syncedKeys: Partial<Record<RepoId, string[]>>): Item[] {
+  const synced = REPOS.map((r) => ({
+    repo: r,
+    keys: new Set(syncedKeys[r.id] ?? []),
+  }));
+  return items.map((item) => {
+    const add = synced.filter(({ repo, keys }) => item.kind === 'ticket' && !item.presence[repo.id] && keys.has(item.id));
+    if (!add.length) return item;
+    return {
+      ...item,
+      presence: {
+        ...item.presence,
+        ...Object.fromEntries(add.map(({ repo }) => [repo.id, Object.fromEntries(repo.branches.map((b) => [b, 'merged']))])),
+      },
+    };
+  });
+}
+
 /** 'DEV-1314-Cannot-book-a-space' → 'Cannot book a space'. Placeholder title until Jira/GitHub enrichment. */
 export function titleFromRef(headRef: string): string {
   return headRef.replace(/^[^/]*\//, '').replace(/^[A-Z]+-\d+-?/i, '').replace(/[-_]+/g, ' ').trim() || headRef;
@@ -37,21 +87,26 @@ export function titleFromRef(headRef: string): string {
 // ---------- git ----------
 
 export interface GitOptions {
-  repo: string
+  /** Path to the local clone. */
+  path: string
+  repo: RepoId
   /** Ref prefix for env branches, e.g. 'origin/'. */
   remote?: string
   projects?: string[]
 }
 
 export interface GitSnapshot {
-  heads: Record<Branch, string>
+  heads: RepoHeads
   items: Item[]
+  /** Ticket keys whose work is already on every env branch (outside the window). */
+  syncedKeys: string[]
 }
 
 const SEP = '\x1F';
 
-export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS }: GitOptions): GitSnapshot {
-  const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], {
+export function readGit({ path, repo, remote = 'origin/', projects = DEFAULT_PROJECTS }: GitOptions): GitSnapshot {
+  const BRANCHES: readonly Branch[] = REPOS.find((r) => r.id === repo)!.branches;
+  const git = (...args: string[]) => execFileSync('git', ['-C', path, ...args], {
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
   }).trim();
@@ -60,11 +115,18 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
 
   const heads = Object.fromEntries(
     BRANCHES.map((b, i) => [b, git('rev-parse', '--short', refs[i]!)]),
-  ) as Record<Branch, string>;
+  ) as RepoHeads;
 
   // Window: reachable from some env branch but not from all of them.
   const notInAll = lines('merge-base', '--octopus', '--all', ...refs).map(sha => `^${sha}`);
   const window = [...refs, ...notInAll];
+
+  // Keys in history every branch shares: those tickets are fully synced, so they never enter the window.
+  // ponytail: scans all shared history's subjects (~0.2s on spacetoco-app); bound it with --since if it grows slow.
+  const bases = notInAll.map((ref) => ref.slice(1));
+  const syncedKeys = new Set(
+    lines('log', '--format=%s', ...bases).map((s) => extractKey(s, projects)).filter(Boolean) as string[],
+  );
 
   // Non-merge commits in the window with their subjects, oldest first.
   const subjects = new Map<string, string>();
@@ -82,10 +144,10 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
   if (subjects.size) {
     const patches = execFileSync(
       'git',
-      ['-C', repo, 'log', '--no-merges', '-p', '--format=commit %H', ...window],
+      ['-C', path, 'log', '--no-merges', '-p', '--format=commit %H', ...window],
       { maxBuffer: 1024 * 1024 * 1024 },
     );
-    const ids = execFileSync('git', ['-C', repo, 'patch-id', '--stable'], {
+    const ids = execFileSync('git', ['-C', path, 'patch-id', '--stable'], {
       input: patches,
       encoding: 'utf8',
       maxBuffer: 256 * 1024 * 1024,
@@ -126,6 +188,7 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
     const base = landedOn.get(sha!);
     if (!base) continue;
     const entry: PullRequest = {
+      repo,
       ...pr,
       base,
       mergedAt: date,
@@ -160,8 +223,8 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
     }
     const key = extractKey(subject, projects);
     if (key) addTo(key, 'ticket', subject.replace(/^\[[^\]]*\]\s*/, ''), commit, prs);
-    else if (prs[0]) addTo(`pr-${prs[0].number}`, 'untracked', prs[0].headRef, commit, [prs[0]]);
-    else addTo(`commit-${commit.slice(0, 7)}`, 'untracked', subject, commit, []);
+    else if (prs[0]) addTo(`${repo}-pr-${prs[0].number}`, 'untracked', prs[0].headRef, commit, [prs[0]]);
+    else addTo(`${repo}-commit-${commit.slice(0, 7)}`, 'untracked', subject, commit, []);
   }
 
   // A change is 'merged' on a branch holding its original (the oldest copy that came through a PR, else the
@@ -185,9 +248,9 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
       kind: g.kind,
       title: g.title,
       prs,
-      presence: Object.fromEntries(
-        BRANCHES.map((b) => [b, combinePresence(changes.map((c) => presenceOf(c, b)))]),
-      ) as Record<Branch, Presence>,
+      presence: {
+        [repo]: Object.fromEntries(BRANCHES.map((b) => [b, combinePresence(changes.map((c) => presenceOf(c, b)))])),
+      },
       hotfix: prs.some(pr => pr.base !== 'develop'),
       warnings: g.kind === 'untracked' ? ['untracked'] : [],
     };
@@ -196,5 +259,6 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
   return {
     heads,
     items,
+    syncedKeys: [...syncedKeys],
   };
 }

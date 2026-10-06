@@ -1,16 +1,22 @@
 # Architecture
 
-Read-only dashboard showing which work (Jira tickets / PRs) sits on which environment branch of `spacetoco/spacetoco-app`, and whether each branch hop is a clean merge, needs cherry-picking, or needs a back-sync. It never merges, cherry-picks or writes to git or Jira. Interim tool until trunk-based development.
+Read-only dashboard showing which work (Jira tickets / PRs) sits on which environment branch of `spacetoco/spacetoco-app` (frontend monorepo) and `spacetoco/spacetoco-api` (backend), and whether each branch hop is a clean merge, needs cherry-picking, or needs a back-sync. Interim tool until trunk-based development.
 
-## Branch topology
+**Read-only, for the app and for Claude building it.** Nothing ever writes to Jira or the `spacetoco` GitHub org: no merges, cherry-picks, pushes, comments or transitions. Git only fetches and reads; GitHub is GET only; Jira is GET plus the two read endpoints that take a body (`issue/bulkfetch`, `search/jql`), and `scripts/lib/jira.ts` refuses any other non-GET.
+
+## Repos and branch topology
+
+Both repos use the same Jira projects (DEV, BUG) and the **same fixVersions**, so one ticket can have work in either repo or both. Repos, branches and hops are defined once in `shared/utils/snapshot.ts` (`REPOS`).
 
 ```
-develop ──▶ staging ──▶ main ──▶ demo
-                          │
-                          └──▶ main-uk ──▶ demo-uk
+spacetoco-app:  develop ──▶ staging ──▶ main ──▶ demo
+                                          │
+                                          └──▶ main-uk ──▶ demo-uk
+
+spacetoco-api:  develop ──▶ staging ──▶ main
 ```
 
-Forward hops (in order): `develop→staging`, `staging→main`, `main→demo`, `main→main-uk`, `main-uk→demo-uk`.
+Forward hops: app `develop→staging`, `staging→main`, `main→demo`, `main→main-uk`, `main-uk→demo-uk`; api `develop→staging`, `staging→main`.
 
 ## Data flow: compute vs display
 
@@ -24,10 +30,10 @@ Forward hops (in order): `develop→staging`, `staging→main`, `main→demo`, `
 ```
 
 - **All logic runs in the snapshot script.** The frontend only renders `snapshot.json`.
-- **Locally:** `pnpm snapshot --repo ~/Dev/spacetoco-app` then `pnpm dev`. No server, no tokens needed for the git-only part.
+- **Locally:** `pnpm snapshot` (reads `~/Dev/spacetoco-app` and `~/Dev/spacetoco-api`) then `pnpm dev`. No server, no tokens needed for the git-only part.
 - **Repo:** built in `lukedaviesdev/spacetoco-release-dashboard` (personal, private) through Phase 5, then moved to the `spacetoco` org before Phase 6, so the Action runs on the org's minutes and secrets.
-- **Hosted:** a GitHub Action in *this* repo checks out the monorepo with a read-only PAT, runs the same script, runs `nuxt generate` and deploys to Cloudflare Pages. Cloudflare Access sits in front of it as the login. One code path for local and hosted.
-- **No changes to the monorepo, ever.** Triggers are cron + manual `workflow_dispatch` only (a push trigger would need a workflow in the monorepo).
+- **Hosted:** a GitHub Action in *this* repo checks out both repos with a read-only PAT, runs the same script, runs `nuxt generate` and deploys to Cloudflare Pages. Cloudflare Access sits in front of it as the login. One code path for local and hosted.
+- **No changes to either repo, ever.** Triggers are cron + manual `workflow_dispatch` only (a push trigger would need a workflow in the monorepo).
 - Shared types and pure logic live in `shared/` (Nuxt 4 convention), so the script and the app import the same `Snapshot` types.
 
 ### Why not a server / VPS / live git
@@ -39,8 +45,8 @@ Forward hops (in order): `develop→staging`, `staging→main`, `main→demo`, `
 
 | Source | Used for | Auth |
 |---|---|---|
-| git (bare/partial clone or local checkout) | which commits/tickets are on which branch, releases vs hotfixes | local: none. Action: fine-grained PAT `MONOREPO_TOKEN` (spacetoco-app only; Contents, Metadata, Pull requests: read) |
-| GitHub REST | PR title, author, merged date | same PAT |
+| git (bare/partial clone or local checkout) | which commits/tickets are on which branch, releases vs hotfixes | local: none. Action: fine-grained PAT `REPOS_TOKEN` (spacetoco-app and spacetoco-api only; Contents, Metadata, Pull requests: read) |
+| GitHub REST | PR title, author (cached per repo in `.cache/`) | same PAT |
 | Jira Cloud REST v3 (`spacetoco.atlassian.net`) | fixVersion, status category, sprint, assignee, versions list | scoped read-only API token: `JIRA_EMAIL` + `JIRA_API_TOKEN` (`read:jira-work`) |
 
 Secrets: local `.env` (gitignored), Action repo secrets. Nothing secret ever reaches the static bundle.
@@ -48,6 +54,8 @@ Secrets: local `.env` (gitignored), Action repo secrets. Nothing secret ever rea
 Confluence is **not** a source: the release sheet there is just a view of Jira data, which this dashboard replaces.
 
 ## Git engine rules
+
+**The git engine runs once per repo**, and items with the same ticket key are merged across repos (`mergeItems`). Untracked ids are prefixed with the repo (`app-pr-1066`), and every PR carries its `repo` because PR numbers repeat across repos.
 
 **Window.** Only commits reachable from at least one env branch but not from all six. Work synced everywhere never appears. This naturally covers "past sprints" (old work still stuck somewhere) without a date window. Legacy `EC-` work falls outside it.
 
@@ -60,8 +68,9 @@ Confluence is **not** a source: the release sheet there is just a view of Jira d
 **Item grouping** (per non-merge commit in the window):
 1. It came through a PR whose head ref has a key → that ticket (a commit can belong to several keyed PRs).
 2. Else its subject has a key → that ticket.
-3. Else the oldest PR it came through → untracked item `pr-<n>`.
-4. Else (pushed directly) → untracked item `commit-<sha7>`.
+3. Else the oldest PR it came through → untracked item `<repo>-pr-<n>`.
+4. Else (pushed directly) → untracked item `<repo>-commit-<sha7>`.
+5. After GitHub enrichment: an untracked PR whose **PR title** has a key (`[DEV-1127] ✨ Special Access Spaces`) joins that ticket.
 
 PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/staging`) are release/sync PRs carrying other PRs' commits, so they are skipped. A PR's commits are `M^1..M^2` of its merge commit.
 
@@ -76,6 +85,8 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 | `partial` | some changes present, some missing |
 | `none` | none present |
 
+**Already released everywhere.** Work on every branch of a repo is outside the window, so the engine also lists ticket keys found in each repo's shared history (`syncedKeys`). A ticket with a synced key and no window work in that repo is marked `merged` on all of that repo's branches. Without this, a released ticket in an unreleased fixVersion would look like it's on no branch.
+
 **Releases vs hotfixes.** No git tags exist. A PR's base is the most upstream env branch whose first-parent history contains its merge commit. An item is a **hotfix** if any of its PRs merged straight into a branch other than `develop` (e.g. `DEV-1314` → staging, `DEV-1200-space-loading-bug-main` → main).
 
 ## Jira rules
@@ -86,11 +97,11 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 - **Current release** = earliest unreleased fixVersion (by `releaseDate`, then name). Selectable in the UI. Versions are marked released in Jira when they ship.
 - **Done** = status category `done`, not status names.
 - Items are **grouped by fixVersion**; sprint is shown as a chip on each row for readability, and is a filter.
-- Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells). This covers "future sprints".
+- Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells) **unless they're Done**. A Done ticket with no work in either repo is a legacy ticket or work committed under other keys, and is dropped (`dropDoneWithoutCode`). This covers "future sprints" without flooding a release with old tickets.
 
 ## Verdict rules
 
-Computed per hop `A→B` over the git window.
+Computed per repo, per hop `A→B`, over the git window. Each repo's develop→staging and staging→main hops use the release rules.
 
 | Hop | Verdict | Condition |
 |---|---|---|
@@ -108,48 +119,13 @@ Warnings (item-level, shown as badges and counted in the header):
 
 `partial` presence counts as "missing" for verdicts.
 
-## Snapshot contract (sketch, finalised as TS types in `shared/` in Phase 0)
+## Snapshot contract
 
-```ts
-type Branch = 'develop' | 'staging' | 'main' | 'demo' | 'main-uk' | 'demo-uk'
-type Presence = 'merged' | 'picked' | 'partial' | 'none'
-
-interface Snapshot {
-  generatedAt: string                     // ISO
-  heads: Record<Branch, string>           // short SHAs
-  releases: { name: string; released: boolean; releaseDate?: string }[]
-  currentRelease: string | null
-  items: Item[]
-  hops: Hop[]
-}
-
-interface Item {
-  id: string                              // 'DEV-1314' or 'pr-1066'
-  kind: 'ticket' | 'untracked'
-  title: string
-  jira?: {
-    status: string
-    statusCategory: 'new' | 'indeterminate' | 'done'
-    fixVersions: string[]
-    sprint?: string
-    assignee?: string
-  }
-  invalidKey?: boolean
-  prs: { number: number; title?: string; author?: string; headRef: string; mergedAt?: string; base: Branch }[]
-  presence: Record<Branch, Presence>
-  hotfix: boolean                         // reached main outside a staging release
-  warnings: ('not-on-develop' | 'done-no-fixversion' | 'invalid-key' | 'untracked')[]
-}
-
-interface Hop {
-  from: Branch
-  to: Branch
-  verdict: 'in-sync' | 'clean' | 'cherry-pick' | 'sync'
-  aheadIds: string[]                      // on `from`, missing on `to`
-  blockingIds: string[]                   // subset of aheadIds causing 'cherry-pick'
-  backSyncIds: string[]                   // on `to`, missing on `from`
-}
-```
+The source of truth is `shared/types/snapshot.ts`, with enums and the `REPOS` topology in `shared/utils/snapshot.ts`. In short:
+- `heads[repo][branch]`: short SHAs.
+- `releases`, `currentRelease`: from Jira versions.
+- `items[]`: one per ticket key or untracked PR/commit. `presence[repo][branch]` only lists repos with work for the item, and is empty for a ticket not merged anywhere yet. Each PR has a `repo`.
+- `hops[]`: one per repo hop, with `verdict`, `aheadIds`, `blockingIds`, `backSyncIds`.
 
 ## Stack
 

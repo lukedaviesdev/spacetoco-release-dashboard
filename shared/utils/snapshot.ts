@@ -1,29 +1,32 @@
 // Runtime constants for the snapshot contract. Types in shared/types/snapshot.ts derive from these.
 
-/** Env branches in display order: trunk first, then the UK line. */
-export const BRANCHES = ['develop', 'staging', 'main', 'demo', 'main-uk', 'demo-uk'] as const;
-
-/** Forward hops in topology order. */
-export const HOPS = [
+/**
+ * Repos the dashboard tracks. Both share Jira projects and fixVersions, so a ticket can have work in either or both.
+ * `branches` are in display order; `hops` are the forward merges in topology order.
+ */
+export const REPOS = [
   {
-    from: 'develop',
-    to: 'staging',
+    id: 'app',
+    name: 'spacetoco-app',
+    github: 'spacetoco/spacetoco-app',
+    branches: ['develop', 'staging', 'main', 'demo', 'main-uk', 'demo-uk'],
+    hops: [
+      ['develop', 'staging'],
+      ['staging', 'main'],
+      ['main', 'demo'],
+      ['main', 'main-uk'],
+      ['main-uk', 'demo-uk'],
+    ],
   },
   {
-    from: 'staging',
-    to: 'main',
-  },
-  {
-    from: 'main',
-    to: 'demo',
-  },
-  {
-    from: 'main',
-    to: 'main-uk',
-  },
-  {
-    from: 'main-uk',
-    to: 'demo-uk',
+    id: 'api',
+    name: 'spacetoco-api',
+    github: 'spacetoco/spacetoco-api',
+    branches: ['develop', 'staging', 'main'],
+    hops: [
+      ['develop', 'staging'],
+      ['staging', 'main'],
+    ],
   },
 ] as const;
 

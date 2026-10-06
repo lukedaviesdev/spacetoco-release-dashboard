@@ -1,12 +1,19 @@
 {
   "generatedAt": "2026-10-06T09:30:00Z",
   "heads": {
-    "develop": "ba75722",
-    "staging": "7a177c9",
-    "main": "3f1e0d2",
-    "demo": "c81a9b4",
-    "main-uk": "5d2e7f1",
-    "demo-uk": "9e04a3c"
+    "app": {
+      "develop": "ba75722",
+      "staging": "7a177c9",
+      "main": "3f1e0d2",
+      "demo": "c81a9b4",
+      "main-uk": "5d2e7f1",
+      "demo-uk": "9e04a3c"
+    },
+    "api": {
+      "develop": "e1a2b3c",
+      "staging": "4d5e6f7",
+      "main": "8a9b0c1"
+    }
   },
   "releases": [
     {
@@ -42,6 +49,7 @@
       },
       "prs": [
         {
+          "repo": "app",
           "number": 1162,
           "headRef": "DEV-1314-Cannot-book-a-space",
           "base": "develop",
@@ -51,12 +59,14 @@
         }
       ],
       "presence": {
-        "develop": "merged",
-        "staging": "merged",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "merged",
+          "staging": "merged",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
       },
       "hotfix": false,
       "warnings": []
@@ -76,6 +86,7 @@
       },
       "prs": [
         {
+          "repo": "app",
           "number": 1186,
           "headRef": "DEV-1189-proton-map-ci-workflow",
           "base": "develop",
@@ -85,12 +96,48 @@
         }
       ],
       "presence": {
-        "develop": "merged",
-        "staging": "none",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "warnings": []
+    },
+    {
+      "id": "DEV-1400",
+      "kind": "ticket",
+      "title": "Booking API rate limits",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [
+          "27.3.0"
+        ],
+        "sprint": "Sprint 41",
+        "assignee": "Sam Patel"
+      },
+      "prs": [
+        {
+          "repo": "api",
+          "number": 148,
+          "headRef": "DEV-1400-booking-rate-limits",
+          "base": "develop",
+          "title": "Booking API rate limits",
+          "author": "sam-patel",
+          "mergedAt": "2026-10-03T03:00:00Z"
+        }
+      ],
+      "presence": {
+        "api": {
+          "develop": "merged",
+          "staging": "merged",
+          "main": "none"
+        }
       },
       "hotfix": false,
       "warnings": []
@@ -110,6 +157,7 @@
       },
       "prs": [
         {
+          "repo": "app",
           "number": 1151,
           "headRef": "DEV-1113",
           "base": "develop",
@@ -119,12 +167,14 @@
         }
       ],
       "presence": {
-        "develop": "merged",
-        "staging": "merged",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "merged",
+          "staging": "merged",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
       },
       "hotfix": false,
       "warnings": []
@@ -144,21 +194,38 @@
       },
       "prs": [
         {
+          "repo": "app",
           "number": 1148,
           "headRef": "DEV-973-Integrate-new-domain-structure-into-mono-repo",
           "base": "develop",
           "title": "Integrate new domain structure",
           "author": "lukedavies-spacetoco",
           "mergedAt": "2026-10-04T06:00:00Z"
+        },
+        {
+          "repo": "api",
+          "number": 140,
+          "headRef": "DEV-973-domain-structure-api",
+          "base": "develop",
+          "title": "Domain structure endpoints",
+          "author": "jensadria",
+          "mergedAt": "2026-10-04T07:00:00Z"
         }
       ],
       "presence": {
-        "develop": "merged",
-        "staging": "merged",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "merged",
+          "staging": "merged",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        },
+        "api": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none"
+        }
       },
       "hotfix": false,
       "warnings": []
@@ -178,6 +245,7 @@
       },
       "prs": [
         {
+          "repo": "app",
           "number": 1080,
           "headRef": "DEV-1200-space-loading-bug-main",
           "base": "main",
@@ -186,6 +254,7 @@
           "mergedAt": "2026-09-09T03:20:00Z"
         },
         {
+          "repo": "app",
           "number": 1086,
           "headRef": "DEV-1200-space-loading-bug-main",
           "base": "main",
@@ -195,22 +264,25 @@
         }
       ],
       "presence": {
-        "develop": "none",
-        "staging": "picked",
-        "main": "merged",
-        "demo": "merged",
-        "main-uk": "merged",
-        "demo-uk": "merged"
+        "app": {
+          "develop": "none",
+          "staging": "picked",
+          "main": "merged",
+          "demo": "merged",
+          "main-uk": "merged",
+          "demo-uk": "merged"
+        }
       },
       "hotfix": true,
       "warnings": []
     },
     {
-      "id": "pr-1066",
+      "id": "app-pr-1066",
       "kind": "untracked",
       "title": "seo-hotfix",
       "prs": [
         {
+          "repo": "app",
           "number": 1066,
           "headRef": "seo-hotfix",
           "base": "main",
@@ -220,12 +292,14 @@
         }
       ],
       "presence": {
-        "develop": "none",
-        "staging": "none",
-        "main": "merged",
-        "demo": "merged",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "none",
+          "staging": "none",
+          "main": "merged",
+          "demo": "merged",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
       },
       "hotfix": true,
       "warnings": [
@@ -245,6 +319,7 @@
       },
       "prs": [
         {
+          "repo": "app",
           "number": 1190,
           "headRef": "DEV-1325-host-terms-copy",
           "base": "develop",
@@ -254,12 +329,14 @@
         }
       ],
       "presence": {
-        "develop": "merged",
-        "staging": "merged",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "merged",
+          "staging": "merged",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
       },
       "hotfix": false,
       "warnings": [
@@ -273,6 +350,7 @@
       "invalidKey": true,
       "prs": [
         {
+          "repo": "app",
           "number": 1107,
           "headRef": "DEV-11940bugfix-submit-casual-bookings-main",
           "base": "main",
@@ -282,12 +360,14 @@
         }
       ],
       "presence": {
-        "develop": "merged",
-        "staging": "merged",
-        "main": "partial",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
+        "app": {
+          "develop": "merged",
+          "staging": "merged",
+          "main": "partial",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
       },
       "hotfix": true,
       "warnings": [
@@ -308,14 +388,7 @@
         "assignee": "Luke Davies"
       },
       "prs": [],
-      "presence": {
-        "develop": "none",
-        "staging": "none",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
-      },
+      "presence": {},
       "hotfix": false,
       "warnings": [
         "not-on-develop"
@@ -334,20 +407,14 @@
         "sprint": "Sprint 42"
       },
       "prs": [],
-      "presence": {
-        "develop": "none",
-        "staging": "none",
-        "main": "none",
-        "demo": "none",
-        "main-uk": "none",
-        "demo-uk": "none"
-      },
+      "presence": {},
       "hotfix": false,
       "warnings": []
     }
   ],
   "hops": [
     {
+      "repo": "app",
       "from": "develop",
       "to": "staging",
       "verdict": "clean",
@@ -360,6 +427,7 @@
       ]
     },
     {
+      "repo": "app",
       "from": "staging",
       "to": "main",
       "verdict": "cherry-pick",
@@ -377,10 +445,11 @@
         "DEV-11940"
       ],
       "backSyncIds": [
-        "pr-1066"
+        "app-pr-1066"
       ]
     },
     {
+      "repo": "app",
       "from": "main",
       "to": "demo",
       "verdict": "in-sync",
@@ -389,20 +458,46 @@
       "backSyncIds": []
     },
     {
+      "repo": "app",
       "from": "main",
       "to": "main-uk",
       "verdict": "sync",
       "aheadIds": [
-        "pr-1066"
+        "app-pr-1066"
       ],
       "blockingIds": [],
       "backSyncIds": []
     },
     {
+      "repo": "app",
       "from": "main-uk",
       "to": "demo-uk",
       "verdict": "in-sync",
       "aheadIds": [],
+      "blockingIds": [],
+      "backSyncIds": []
+    },
+    {
+      "repo": "api",
+      "from": "develop",
+      "to": "staging",
+      "verdict": "cherry-pick",
+      "aheadIds": [
+        "DEV-973"
+      ],
+      "blockingIds": [
+        "DEV-973"
+      ],
+      "backSyncIds": []
+    },
+    {
+      "repo": "api",
+      "from": "staging",
+      "to": "main",
+      "verdict": "clean",
+      "aheadIds": [
+        "DEV-1400"
+      ],
       "blockingIds": [],
       "backSyncIds": []
     }

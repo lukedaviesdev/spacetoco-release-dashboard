@@ -16,7 +16,7 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 - All git/Jira/verdict logic lives in the snapshot script and `shared/`; the app only renders `snapshot.json`.
 - Never write to the monorepo, git remotes or Jira. Read-only, always.
 - Secrets only in `.env` (gitignored) / Action secrets. Never in the static bundle.
-- Git workflow: Phase 0 straight to `main`; after that, branch `phase-N-<slug>`, atomic commits, PR once the user has checked the phase's "Done when" items. Don't start the next phase until the PR merges.
+- Git workflow: Phase 0 straight to `main`; after that, branch `phase-N-<slug>` with atomic commits, and **always open a PR at the end of every phase** with the phase's "Done when" checklist in the description. The user verifies against it and merges. Don't start the next phase until the PR merges.
 - Update the docs as each phase is built; mark roadmap status.
 
 ## Docs
@@ -38,6 +38,7 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 
 ## Commands (from Phase 0)
 
+- `pnpm fixture`: copy the test fixture to `public/snapshot.json`
 - `pnpm dev`: app against `public/snapshot.json`
 - `pnpm snapshot --repo ~/Dev/spacetoco-app [--fetch]`: regenerate the snapshot
 - `pnpm test` / `pnpm typecheck`

@@ -20,9 +20,16 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
   **Why:** the first fixture had no `clean` hop; only the coverage assertion caught it. (Phase 0)
 - **Keep enums as `as const` arrays in `shared/utils/` and derive types from them**, so tests and runtime checks iterate the same source the types come from. (Phase 0)
 - **Fixture data must be internally consistent with the verdict rules in `architecture.md`.** When editing presence, recompute the affected hops' `aheadIds` / `blockingIds` / `backSyncIds` by hand. (Phase 0)
+- **A cherry-picked copy belongs to the same ticket as its original, so compare *changes*, not commits.** Group copies (patch-id / keyed subject) and decide presence from which copy a branch holds.
+  **Why:** the first engine marked DEV-5's own develop commit as "picked" because the staging copy matched it; the temp-repo test caught it. (Phase 1)
+- **Build git scenarios in a temp repo inside the test** (`mkdtemp` + scripted commits/merges/cherry-picks) rather than mocking git output. It's what caught the copy bug. (Phase 1)
+- **Real snapshots contain internal ticket data: never commit them.** `public/snapshot.json` is gitignored; the committed fixture lives in `test/fixtures/`. Doubly important while the repo is on a personal account. (Phase 1)
+- **Check every new directory is in a typecheck context.** Nuxt only typechecks `app/`, `server/`, `shared/` and `test/nuxt/` by default; `scripts/` and `test/unit/` are added via `typescript.nodeTsConfig.include`. (Phase 1)
 
 ## Environment (for Claude)
 
 - **The preview server config is `~/.claude/launch.json`** (the session root), not `.claude/launch.json` in this repo. The entry is `release-dashboard` (port 3000). (Phase 0)
 - **The shell is zsh: unquoted `$var` does not word-split, and a bare `=====` is a command error.** Use arrays or `${a%%:*}` splitting, and `echo '---'` for separators. (Phase 0)
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
+- **No git auth switching is needed until Phase 6.** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
+- **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)

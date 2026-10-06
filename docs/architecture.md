@@ -57,18 +57,26 @@ Confluence is **not** a source: the release sheet there is just a view of Jira d
 3. No key found → **untracked** item, identified by PR number + branch name (e.g. `#1066 seo-hotfix`). Never dropped.
 4. Key not found in Jira (typos like `DEV-11940`, wrong prefix) → item flagged `invalidKey`.
 
-**Presence per ticket per branch** (the ticket's non-merge commits):
+**Item grouping** (per non-merge commit in the window):
+1. It came through a PR whose head ref has a key → that ticket (a commit can belong to several keyed PRs).
+2. Else its subject has a key → that ticket.
+3. Else the oldest PR it came through → untracked item `pr-<n>`.
+4. Else (pushed directly) → untracked item `commit-<sha7>`.
+
+PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/staging`) are release/sync PRs carrying other PRs' commits, so they are skipped. A PR's commits are `M^1..M^2` of its merge commit.
+
+**Changes and copies.** Commits that are copies of the same change are grouped: same `git patch-id --stable`, or the same subject *when that subject has a ticket key* (catches picks whose diff changed in conflict resolution; generic subjects like "fix lint" would join unrelated commits). The change's **original** is its oldest copy that came through a PR, else its oldest copy.
+
+**Presence per item per branch**, combined over the item's changes:
 
 | Presence | Meaning |
 |---|---|
-| `merged` | all commits reachable from the branch |
-| `picked` | all present, at least one only via patch-equivalence (`git log --cherry-mark`), i.e. cherry-picked / hotfixed across |
-| `partial` | some commits present, some missing |
+| `merged` | the branch holds the original of every change |
+| `picked` | every change present, at least one only as a copy (cherry-picked / hotfixed across) |
+| `partial` | some changes present, some missing |
 | `none` | none present |
 
-Known gap: a cherry-pick with conflict resolution changes its patch-id. Fallback: if the branch has a commit carrying the same ticket key, treat the commit as `picked`.
-
-**Releases vs hotfixes.** No git tags exist. On `main`'s first-parent history, a merge from `staging` is a release; a merge from anything else (e.g. `DEV-1200-space-loading-bug-main`, `seo-hotfix`) is a hotfix.
+**Releases vs hotfixes.** No git tags exist. A PR's base is the most upstream env branch whose first-parent history contains its merge commit. An item is a **hotfix** if any of its PRs merged straight into a branch other than `develop` (e.g. `DEV-1314` → staging, `DEV-1200-space-loading-bug-main` → main).
 
 ## Jira rules
 

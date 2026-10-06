@@ -22,3 +22,6 @@ logs
 .env
 .env.*
 !.env.example
+
+# Real snapshots contain internal ticket data: never commit them. `pnpm fixture` copies the test fixture here.
+public/snapshot.json

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-const store = useSnapshotStore()
-await callOnce(store.load)
+const store = useSnapshotStore();
+await callOnce(store.load);
 </script>
 
 <template>
   <v-container>
-    <v-alert v-if="store.error" type="error" :text="`Couldn't load snapshot.json: ${store.error.message}`" />
+    <v-alert v-if="store.error" :text="`Couldn't load snapshot.json: ${store.error.message}`" type="error" />
     <v-table v-else density="compact">
       <thead>
         <tr>

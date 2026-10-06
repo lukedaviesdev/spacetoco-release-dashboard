@@ -20,22 +20,23 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 
 **Done when**
 - [x] `pnpm dev` shows a Vuetify page listing the fixture's items
-- [x] `pnpm test` and `pnpm typecheck` pass (fixture conforms to the types)
+- [x] `pnpm test:unit` and `pnpm typecheck` pass (fixture conforms to the types)
 
-**Notes:** the fixture test (`test/unit/fixture.test.ts`) also asserts the fixture covers every presence, verdict and warning, so the UI phases can't miss a state. Reuse its checks against real script output in Phase 1.
+**Notes:** the fixture test (`shared/fixtures/snapshot.test.ts`) also asserts the fixture covers every presence, verdict and warning, so the UI phases can't miss a state. Reuse its checks against real script output in Phase 1.
 
 ## Phase 1: Git engine
-**Status:** Not started
+**Status:** In progress (built, PR open for user check)
 **Docs:** git `rev-list`, `log --cherry-mark`, `merge-base`, `patch-id`; Node `child_process`
 
 - `scripts/snapshot.ts` (run with Node 24 native TS) taking `--repo <path>` and `--fetch`.
 - Commit window (on some env branch but not all), PR number + head ref from merge commits, ticket key extraction, presence per branch (`merged`/`picked`/`partial`/`none`), release vs hotfix from `main` first-parent, untracked items.
-- Pure functions in `shared/` / `scripts/lib/`; git calls isolated in one module.
+- Pure functions and git reading in `scripts/lib/git.ts`; CLI in `scripts/snapshot.ts`.
+- The fixture moved to `shared/fixtures/snapshot.json`. `public/snapshot.json` is gitignored: `pnpm fixture` copies the fixture there, `pnpm snapshot` writes real data there.
 
 **Done when**
-- [ ] `pnpm snapshot --repo ~/Dev/spacetoco-app` writes a snapshot with git-only data
+- [x] `pnpm snapshot --repo ~/Dev/spacetoco-app` writes a snapshot with git-only data (41 items, ~1s)
 - [ ] Spot-check: 5 items' presence matches `git log origin/<branch> --grep <KEY>`; recent hotfixes (e.g. `DEV-1200`) flagged
-- [ ] Unit tests: a temp git repo is built in the test with a feature merge, a cherry-picked hotfix, a conflict-resolved pick, an untracked PR and a partial ticket, and presence is asserted for each
+- [x] Unit tests: a temp git repo is built in the test with a feature merge, a cherry-picked hotfix, a conflict-resolved pick, an untracked PR and a partial ticket, and presence is asserted for each
 
 ## Phase 2: Jira + GitHub enrichment
 **Status:** Not started

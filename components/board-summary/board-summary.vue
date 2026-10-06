@@ -87,14 +87,11 @@ const SYMBOLS: { presence: Presence, text: string }[] = [
 <style scoped>
 .summary {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 16px 40px;
-  padding: 20px 0 16px;
+  flex-direction: column;
+  gap: 20px;
 }
 
-.summary__figures { display: flex; flex-wrap: wrap; gap: 4px 36px; }
+.summary__figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; }
 
 .figure {
   display: flex;
@@ -124,7 +121,7 @@ const SYMBOLS: { presence: Presence, text: string }[] = [
 .figure--return .figure__n { color: var(--state-return); }
 .figure--caution .figure__n { color: var(--state-caution); }
 .figure--zero .figure__n { color: var(--well-empty); }
-.figure--total { padding-right: 36px; border-right: 1px solid var(--rule); }
+.figure--total { grid-column: 1 / -1; padding-bottom: 10px; border-bottom: 1px solid var(--rule); }
 
 .figure--total .figure__n { color: var(--ink); }
 .figure:hover .figure__label { color: var(--ink); }
@@ -145,5 +142,5 @@ const SYMBOLS: { presence: Presence, text: string }[] = [
 .summary__legend .legend--danger :deep(.well) { color: var(--state-danger); }
 .summary__legend .legend--return :deep(.well) { color: var(--state-return); }
 .summary__legend .legend--caution :deep(.well) { color: var(--state-caution); }
-.summary__legend { flex-wrap: wrap; max-width: 560px; justify-content: flex-end; row-gap: 6px; }
+.summary__legend { flex-wrap: wrap; row-gap: 6px; }
 </style>

@@ -96,6 +96,7 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 - Versions via `/rest/api/3/project/{key}/versions`.
 - **Current release** = earliest unreleased fixVersion (by `releaseDate`, then name). Selectable in the UI. Versions are marked released in Jira when they ship.
 - **Done** = status category `done`, not status names.
+- **Status lifecycle vs branches** (the team's workflow): **In testing** while the work is on staging being tested manually → **Done** once testing passes (ready for main) → **Released** once merged to main. Done and Released are both in the `done` category, which is what staging→main requires. Real statuses are numbered, e.g. `(5) Ready for Testing`, `(6) In testing`, `(7) Done`, `(8) READY TO RELEASE`, `RELEASED`.
 - Items are **grouped by fixVersion**; sprint is shown as a chip on each row for readability, and is a filter.
 - Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells) **unless they're Done**. A Done ticket with no work in either repo is a legacy ticket or work committed under other keys, and is dropped (`dropDoneWithoutCode`). This covers "future sprints" without flooding a release with old tickets.
 

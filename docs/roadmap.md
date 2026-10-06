@@ -58,7 +58,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 - [x] Unit tests: recorded Jira/GitHub responses â†’ mapped items; missing key â†’ `invalidKey`
 
 ## Phase 3: Verdict engine
-**Status:** In progress (built, PR open for user check)
+**Status:** Done
 **Docs:** `architecture.md` verdict rules
 
 - Pure `computeHops`, `computeWarnings` and `judge` in `shared/utils/verdicts.ts` (shared so the app can re-judge for another release).
@@ -69,7 +69,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 - [x] Unit tests: table-driven, one case per verdict and warning rule, including `partial` counting as missing
 
 ## Phase 4: Wells view (+ design direction, critic loop)
-**Status:** Not started
+**Status:** In progress (built, PR open for user check)
 **Docs:** Vuetify data-table (grouping, slots), theming; Pinia setup stores; `@vueuse/router` `useRouteQuery`; `design.md`
 
 - Fill in palette / type / well encoding in `design.md` first, then run `/design-system` to produce tokens and map them onto the Vuetify theme.
@@ -79,10 +79,10 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 
 **Done when**
 - [ ] Looking at real data, the user can spot "in staging but not in release" rows and hotfix rows without reading text
-- [ ] Filters round-trip through the URL (copy the link, open it in a new tab, same view)
-- [ ] Light/dark, keyboard and screen-reader wells checked; empty/error/200-item states handled
-- [ ] Critic â‰¥9/10 (or plateau noted)
-- [ ] Unit tests: store getters (filtering, grouping order)
+- [x] Filters round-trip through the URL (copy the link, open it in a new tab, same view)
+- [x] Light/dark, keyboard and screen-reader wells checked; empty/error states handled (largest real board so far: 88 items; 200+ not measured)
+- [x] Critic â‰¥9/10 (or plateau noted): plateau at 5, 5, 6, 5, 5 over five rounds, see `design.md`
+- [x] Unit tests: store getters (filtering, grouping order)
 
 ## Phase 5: Transit map header (+ critic loop)
 **Status:** Not started

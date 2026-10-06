@@ -47,6 +47,9 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Vuetify sorts group keys numerically, so "0" and "00" tie.** Use letters for group order keys. (Phase 4)
 - **One huge cell can wreck an auto-layout table.** DEV-1189's 7 PR links set the PRs column to 475px. Cap lists in cells (first item plus "+N"). (Phase 4)
 
+- **A ticket can ship once and then get another PR.** Its shipped commits sit outside the window, so only the new PR is visible, and the ticket looked as if it had never left develop. Fold synced keys in as `partial` on branches missing the new work. (Phase 5, DEV-1237, spotted by the user)
+- **When the user questions a flag, check it against raw git before answering.** Five of six "Released, not on main" were true, but one exposed a modelling gap. (Phase 5)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.

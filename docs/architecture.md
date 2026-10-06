@@ -85,6 +85,8 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 | `partial` | some changes present, some missing |
 | `none` | none present |
 
+**Shipped once, then more work.** If a ticket's key is in a repo's shared history *and* it has window work there (shipped via one PR, then another PR merged to develop), branches missing the new work show `partial`, not `none` (DEV-1237: #1115 shipped, #1109 develop-only).
+
 **Already released everywhere.** Work on every branch of a repo is outside the window, so the engine also lists ticket keys found in each repo's shared history (`syncedKeys`). A ticket with a synced key and no window work in that repo is marked `merged` on all of that repo's branches. Without this, a released ticket in an unreleased fixVersion would look like it's on no branch.
 
 **Releases vs hotfixes.** No git tags exist. A PR's base is the most upstream env branch whose first-parent history contains its merge commit. An item is a **hotfix** if any of its PRs merged straight into a branch other than `develop` (e.g. `DEV-1314` → staging, `DEV-1200-space-loading-bug-main` → main).

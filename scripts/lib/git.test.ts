@@ -252,6 +252,30 @@ describe('combining items across repos', () => {
     });
   });
 
+  it('shows a ticket that shipped once and then got another PR as partly on the branches missing the new PR', () => {
+    const [shippedThenMore] = addSyncedPresence(
+      [item({
+        app: {
+          'develop': 'merged',
+          'staging': 'none',
+          'main': 'none',
+          'demo': 'none',
+          'main-uk': 'none',
+          'demo-uk': 'none',
+        },
+      })],
+      { app: ['DEV-1'] },
+    );
+    expect(shippedThenMore!.presence.app).toEqual({
+      'develop': 'merged',
+      'staging': 'partial',
+      'main': 'partial',
+      'demo': 'partial',
+      'main-uk': 'partial',
+      'demo-uk': 'partial',
+    });
+  });
+
   it('marks a ticket merged everywhere in repos where its key is already in shared history', () => {
     const [jiraOnly, appOnly] = addSyncedPresence(
       [item({}), {
@@ -276,6 +300,7 @@ describe('combining items across repos', () => {
       staging: 'merged',
       main: 'merged',
     });
+    // DEV-2's app work isn't synced, so it's untouched there; its key is synced in api only.
     expect(appOnly!.presence.app).toEqual({ develop: 'merged' });
     expect(appOnly!.presence.api).toEqual({
       develop: 'merged',

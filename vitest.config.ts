@@ -1,23 +1,11 @@
-import { defineConfig } from 'vitest/config'
-import { defineVitestProject } from '@nuxt/test-utils/config'
+import { defineVitestConfig } from '@nuxt/test-utils/config';
 
-export default defineConfig({
+// Same shape as spacetoco-app's packages/ui. Tests sit next to the file they test;
+// node-only tests opt out with `// @vitest-environment node`.
+export default defineVitestConfig({
   test: {
-    projects: [
-      {
-        test: {
-          name: 'unit',
-          include: ['test/unit/**/*.test.ts'],
-          environment: 'node',
-        },
-      },
-      await defineVitestProject({
-        test: {
-          name: 'nuxt',
-          include: ['test/nuxt/**/*.test.ts'],
-          environment: 'nuxt',
-        },
-      }),
-    ],
+    environment: 'nuxt',
+    globals: true,
+    hookTimeout: 15000,
   },
-})
+});

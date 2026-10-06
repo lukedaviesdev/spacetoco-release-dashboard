@@ -23,8 +23,17 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **A cherry-picked copy belongs to the same ticket as its original, so compare *changes*, not commits.** Group copies (patch-id / keyed subject) and decide presence from which copy a branch holds.
   **Why:** the first engine marked DEV-5's own develop commit as "picked" because the staging copy matched it; the temp-repo test caught it. (Phase 1)
 - **Build git scenarios in a temp repo inside the test** (`mkdtemp` + scripted commits/merges/cherry-picks) rather than mocking git output. It's what caught the copy bug. (Phase 1)
-- **Real snapshots contain internal ticket data: never commit them.** `public/snapshot.json` is gitignored; the committed fixture lives in `test/fixtures/`. Doubly important while the repo is on a personal account. (Phase 1)
-- **Check every new directory is in a typecheck context.** Nuxt only typechecks `app/`, `server/`, `shared/` and `test/nuxt/` by default; `scripts/` and `test/unit/` are added via `typescript.nodeTsConfig.include`. (Phase 1)
+- **Real snapshots contain internal ticket data: never commit them.** `public/snapshot.json` is gitignored; the committed fixture lives in `shared/fixtures/`. Doubly important while the repo is on a personal account. (Phase 1)
+- **Check every new directory is in a typecheck context.** Nuxt only typechecks its own dirs (`pages/`, `composables/`, `server/`, `shared/`…) by default; `scripts/` is added via `typescript.nodeTsConfig.include`. (Phase 1)
+
+## Conventions
+
+- **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
+  **Why:** the user wants this to drop into the monorepo later; Phase 0/1 used Nuxt 4 defaults (`app/`, `test/`) and had to be moved. (Phase 1, user correction)
+- **Use `srcDir: '.'` + `dir: { app: 'app' }` for root-level folders, not `future.compatibilityVersion: 3`.** The monorepo uses the latter, but Nuxt 4.6's types reject it. (Phase 1)
+- **App `eslint.config.mjs` has no `// @ts-check`**, as in the monorepo; the a11y plugin's types don't fit `withNuxt`. (Phase 1)
+- **`comma-dangle: always-multiline` is on**, because `object-property-newline` autofix otherwise leaves multiline objects without trailing commas. (Phase 1)
+- **CLI output goes through `process.stdout.write`**, since `no-console` only allows warn/error. (Phase 1)
 
 ## Environment (for Claude)
 

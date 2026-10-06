@@ -20,9 +20,9 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 
 **Done when**
 - [x] `pnpm dev` shows a Vuetify page listing the fixture's items
-- [x] `pnpm test` and `pnpm typecheck` pass (fixture conforms to the types)
+- [x] `pnpm test:unit` and `pnpm typecheck` pass (fixture conforms to the types)
 
-**Notes:** the fixture test (`test/unit/fixture.test.ts`) also asserts the fixture covers every presence, verdict and warning, so the UI phases can't miss a state. Reuse its checks against real script output in Phase 1.
+**Notes:** the fixture test (`shared/fixtures/snapshot.test.ts`) also asserts the fixture covers every presence, verdict and warning, so the UI phases can't miss a state. Reuse its checks against real script output in Phase 1.
 
 ## Phase 1: Git engine
 **Status:** In progress (built, PR open for user check)
@@ -31,7 +31,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 - `scripts/snapshot.ts` (run with Node 24 native TS) taking `--repo <path>` and `--fetch`.
 - Commit window (on some env branch but not all), PR number + head ref from merge commits, ticket key extraction, presence per branch (`merged`/`picked`/`partial`/`none`), release vs hotfix from `main` first-parent, untracked items.
 - Pure functions and git reading in `scripts/lib/git.ts`; CLI in `scripts/snapshot.ts`.
-- The fixture moved to `test/fixtures/snapshot.json`. `public/snapshot.json` is gitignored: `pnpm fixture` copies the fixture there, `pnpm snapshot` writes real data there.
+- The fixture moved to `shared/fixtures/snapshot.json`. `public/snapshot.json` is gitignored: `pnpm fixture` copies the fixture there, `pnpm snapshot` writes real data there.
 
 **Done when**
 - [x] `pnpm snapshot --repo ~/Dev/spacetoco-app` writes a snapshot with git-only data (41 items, ~1s)

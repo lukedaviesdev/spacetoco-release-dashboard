@@ -1,10 +1,10 @@
-import type { BRANCHES, PRESENCES, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../utils/snapshot'
+import type { BRANCHES, PRESENCES, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../utils/snapshot';
 
-export type Branch = typeof BRANCHES[number]
-export type Presence = typeof PRESENCES[number]
-export type StatusCategory = typeof STATUS_CATEGORIES[number]
-export type Verdict = typeof VERDICTS[number]
-export type Warning = typeof WARNINGS[number]
+export type Branch = typeof BRANCHES[number];
+export type Presence = typeof PRESENCES[number];
+export type StatusCategory = typeof STATUS_CATEGORIES[number];
+export type Verdict = typeof VERDICTS[number];
+export type Warning = typeof WARNINGS[number];
 
 export interface Release {
   name: string

@@ -76,4 +76,5 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
 - **The browser pane may be hidden, so screenshots time out.** Use headless Chrome against `nuxt generate` + `python3 -m http.server`; force the theme with `--blink-settings=preferredColorScheme=0` (dark) or `=1` (light). (Phase 4)
 - **`gh pr edit` can fail on a Projects (classic) GraphQL error.** Update PR bodies with `gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -F body=@file` instead. (Phase 3)
+- **Gate commits on the checks with `&&` (`pnpm -s lint && pnpm -s typecheck && pnpm -s test:unit && git commit …`).** A `;` let a lint error through into a commit. (Phase 4)
 - **Don't use `git stash` for quick experiments.** `git stash -- <untracked file>` stashes nothing, and a following `stash drop` would drop someone else's stash. Edit and revert the file directly. (Phase 3)

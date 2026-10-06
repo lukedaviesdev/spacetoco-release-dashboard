@@ -84,6 +84,36 @@ describe('rowState', () => {
     })])).toBe('ink');
   });
 
+  it('splits Released-but-not-on-main: none of it on main is danger, partly on main (a shipped hotfix) is caution', () => {
+    const released = {
+      status: 'RELEASED',
+      statusCategory: 'done' as const,
+      fixVersions: [],
+    };
+    expect(rowState(item({
+      warnings: ['status-mismatch'],
+      jira: released,
+      presence: {
+        app: {
+          develop: 'merged',
+          main: 'none',
+        },
+      },
+    }), []))
+      .toBe('danger');
+    expect(rowState(item({
+      warnings: ['status-mismatch'],
+      jira: released,
+      presence: {
+        app: {
+          develop: 'merged',
+          main: 'partial',
+        },
+      },
+    }), []))
+      .toBe('caution');
+  });
+
   it('treats on-main-but-not-Released as housekeeping, not danger', () => {
     expect(rowState(item({
       warnings: ['status-mismatch'],

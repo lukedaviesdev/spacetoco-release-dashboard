@@ -30,6 +30,10 @@
       "name": "27.4.0",
       "released": false,
       "releaseDate": "2026-10-29"
+    },
+    {
+      "name": "Rolling Hotfixes",
+      "released": false
     }
   ],
   "currentRelease": "27.3.0",
@@ -238,7 +242,7 @@
         "status": "Done",
         "statusCategory": "done",
         "fixVersions": [
-          "27.2.2"
+          "Rolling Hotfixes"
         ],
         "sprint": "Sprint 40",
         "assignee": "Minh Tran"
@@ -304,6 +308,45 @@
       "hotfix": true,
       "warnings": [
         "untracked"
+      ]
+    },
+    {
+      "id": "DEV-1290",
+      "kind": "ticket",
+      "title": "Calendar overlap on recurring bookings",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [
+          "27.2.2"
+        ],
+        "sprint": "Sprint 40",
+        "assignee": "Hana Lee"
+      },
+      "prs": [
+        {
+          "repo": "app",
+          "number": 1101,
+          "headRef": "DEV-1290-calendar-overlap",
+          "base": "develop",
+          "title": "Fix calendar overlap",
+          "author": "hana-lee",
+          "mergedAt": "2026-09-18T05:00:00Z"
+        }
+      ],
+      "presence": {
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "warnings": [
+        "missed-release"
       ]
     },
     {
@@ -417,11 +460,14 @@
       "repo": "app",
       "from": "develop",
       "to": "staging",
-      "verdict": "clean",
+      "verdict": "cherry-pick",
       "aheadIds": [
-        "DEV-1189"
+        "DEV-1189",
+        "DEV-1290"
       ],
-      "blockingIds": [],
+      "blockingIds": [
+        "DEV-1290"
+      ],
       "backSyncIds": [
         "DEV-1200"
       ]

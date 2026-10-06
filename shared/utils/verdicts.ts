@@ -1,7 +1,7 @@
 // Hop verdicts and item warnings for a selected release. Pure, so the snapshot script precomputes them for the
 // current release and the app recomputes them when another release is picked.
-import type { Branch, Hop, Item, Presence, RepoId, Warning } from '../types/snapshot.ts';
-import { REPOS } from './snapshot.ts';
+import type { Branch, Hop, Item, Presence, Release, RepoId, Warning } from '../types/snapshot.ts';
+import { REPOS, ROLLING_VERSIONS } from './snapshot.ts';
 
 /** Hops judged against the release (merge vs cherry-pick); the others only report pending syncs. */
 const RELEASE_HOPS = new Set(['develop→staging', 'staging→main']);
@@ -16,10 +16,15 @@ const RANK: Record<Presence, number> = {
 
 const rankOn = (item: Item, repo: RepoId, branch: Branch) => RANK[item.presence[repo]?.[branch] ?? 'none'];
 
-/** In the release and Done: safe to go through a release hop. */
-export const isReady = (item: Item, release: string | null) => !!release
-  && !!item.jira?.fixVersions.includes(release)
-  && item.jira.statusCategory === 'done';
+/** Done, and in the release or a rolling version: safe to go through a release hop. */
+export const isReady = (item: Item, release: string | null) => item.jira?.statusCategory === 'done'
+  && item.jira.fixVersions.some((v) => v === release || ROLLING_VERSIONS.includes(v));
+
+/** Every repo the item has work in holds all of it on `branch`. */
+const fullyOn = (item: Item, branch: Branch) => {
+  const repos = Object.keys(item.presence) as RepoId[];
+  return repos.length > 0 && repos.every((repo) => rankOn(item, repo, branch) === 2);
+};
 
 export const computeHops = (items: Item[], release: string | null): Hop[] => REPOS.flatMap((repo) => repo.hops.map(
   ([from, to]): Hop => {
@@ -46,11 +51,13 @@ export const computeHops = (items: Item[], release: string | null): Hop[] => REP
   },
 ));
 
-export const computeWarnings = (item: Item, release: string | null): Warning[] => {
+export const computeWarnings = (item: Item, release: string | null, releases: Release[] = []): Warning[] => {
   const warnings: Warning[] = [];
-  const repos = Object.keys(item.presence) as RepoId[];
-  const fullyOnDevelop = repos.length > 0 && repos.every((repo) => rankOn(item, repo, 'develop') === 2);
-  if (release && item.jira?.fixVersions.includes(release) && !fullyOnDevelop) warnings.push('not-on-develop');
+  const shipped = new Set(releases.filter((r) => r.released).map((r) => r.name));
+  const versions = item.jira?.fixVersions.filter((v) => !ROLLING_VERSIONS.includes(v)) ?? [];
+  if (release && item.jira?.fixVersions.includes(release) && !fullyOn(item, 'develop')) warnings.push('not-on-develop');
+  // Every version it's in has shipped, yet it isn't on main: it missed its release, or its fixVersion is stale.
+  if (versions.length && versions.every((v) => shipped.has(v)) && !fullyOn(item, 'main')) warnings.push('missed-release');
   if (item.jira?.statusCategory === 'done' && !item.jira.fixVersions.length) warnings.push('done-no-fixversion');
   if (item.invalidKey) warnings.push('invalid-key');
   if (item.kind === 'untracked') warnings.push('untracked');
@@ -58,10 +65,10 @@ export const computeWarnings = (item: Item, release: string | null): Warning[] =
 };
 
 /** Items with warnings for `release`, and hops judged against it. */
-export const judge = (items: Item[], release: string | null): { items: Item[], hops: Hop[] } => {
+export const judge = (items: Item[], release: string | null, releases: Release[] = []): { items: Item[], hops: Hop[] } => {
   const judged = items.map((item) => ({
     ...item,
-    warnings: computeWarnings(item, release),
+    warnings: computeWarnings(item, release, releases),
   }));
   return {
     items: judged,

@@ -30,7 +30,13 @@ export const REPOS = [
   },
 ] as const;
 
+/**
+ * Jira versions that never ship on their own: a Done ticket in one goes out with whichever release is next.
+ * Never picked as the current release.
+ */
+export const ROLLING_VERSIONS = ['Rolling Hotfixes'];
+
 export const PRESENCES = ['merged', 'picked', 'partial', 'none'] as const;
 export const STATUS_CATEGORIES = ['new', 'indeterminate', 'done'] as const;
 export const VERDICTS = ['in-sync', 'clean', 'cherry-pick', 'sync'] as const;
-export const WARNINGS = ['not-on-develop', 'done-no-fixversion', 'invalid-key', 'untracked'] as const;
+export const WARNINGS = ['not-on-develop', 'missed-release', 'done-no-fixversion', 'invalid-key', 'untracked'] as const;

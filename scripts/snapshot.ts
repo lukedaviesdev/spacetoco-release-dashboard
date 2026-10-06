@@ -96,7 +96,7 @@ const before = items.length;
 items = dropDoneWithoutCode(items);
 if (before > items.length) log(`Dropped ${before - items.length} Done tickets with no code in either repo.`);
 
-const judged = judge(items, currentRelease);
+const judged = judge(items, currentRelease, releases);
 
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),

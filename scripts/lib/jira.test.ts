@@ -134,6 +134,13 @@ describe('releases', () => {
   it('picks the earliest unreleased version as current', () => {
     expect(currentReleaseOf(releases)).toBe('2.0.0');
     expect(currentReleaseOf([])).toBeNull();
+    expect(currentReleaseOf([{
+      name: 'Rolling Hotfixes',
+      released: false,
+    }, {
+      name: '3.0.0',
+      released: false,
+    }])).toBe('3.0.0');
   });
 });
 

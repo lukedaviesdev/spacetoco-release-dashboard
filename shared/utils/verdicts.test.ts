@@ -60,6 +60,17 @@ describe('release hops (develop→staging, staging→main)', () => {
     expect(h.blockingIds).toEqual(blocking);
   });
 
+  it('lets Done Rolling Hotfixes through any release, but not open ones', () => {
+    const rolling = (statusCategory: JiraInfo['statusCategory']) => item('A', 'm.....', {
+      jira: {
+        fixVersions: ['Rolling Hotfixes'],
+        statusCategory,
+      },
+    });
+    expect(hop([rolling('done')], 'develop', 'staging').verdict).toBe('clean');
+    expect(hop([rolling('indeterminate')], 'develop', 'staging').verdict).toBe('cherry-pick');
+  });
+
   it('lists ready and blocking items together when mixed', () => {
     const h = hop([item('A', 'mm....'), item('B', 'mm....', { jira: { statusCategory: 'new' } })], 'staging', 'main');
     expect(h).toMatchObject({
@@ -145,6 +156,30 @@ describe('computeWarnings', () => {
     expect(computeWarnings(i, R)).toEqual(warnings);
   });
 
+  describe('missed-release', () => {
+    const releases = [{
+      name: '1.0.0',
+      released: true,
+    }, {
+      name: R,
+      released: false,
+    }];
+    const warn = (app: string, fixVersions: string[]) => (
+      computeWarnings(item('A', app, { jira: { fixVersions } }), R, releases)
+    );
+
+    it('flags work whose versions have all shipped but that isn\'t on main', () => {
+      expect(warn('m.....', ['1.0.0'])).toEqual(['missed-release']);
+      expect(warn('mmh...', ['1.0.0'])).toEqual(['missed-release']);
+    });
+
+    it('stays quiet once it is on main, when it was carried into an unreleased version, or for rolling versions', () => {
+      expect(warn('mmm...', ['1.0.0'])).toEqual([]);
+      expect(warn('m.....', ['1.0.0', R])).toEqual([]);
+      expect(warn('m.....', ['Rolling Hotfixes'])).toEqual([]);
+    });
+  });
+
   it('needs every repo with work to have it on develop', () => {
     const both = {
       ...item('A', 'm.....'),
@@ -161,7 +196,7 @@ describe('the committed fixture', () => {
   const fixture: Snapshot = JSON.parse(readFileSync(new URL('../fixtures/snapshot.json', import.meta.url), 'utf8'));
 
   it('matches what the engine computes, so the UI is built against real verdicts', () => {
-    const judged = judge(fixture.items, fixture.currentRelease);
+    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases);
     expect(judged.hops).toEqual(fixture.hops);
     expect(judged.items.map((i) => [i.id, i.warnings])).toEqual(fixture.items.map((i) => [i.id, i.warnings]));
   });

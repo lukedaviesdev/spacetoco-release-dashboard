@@ -1,5 +1,5 @@
 import type { Item, JiraInfo, Release } from '../../shared/types/snapshot.ts';
-import { STATUS_CATEGORIES } from '../../shared/utils/snapshot.ts';
+import { ROLLING_VERSIONS, STATUS_CATEGORIES } from '../../shared/utils/snapshot.ts';
 
 export interface JiraConfig {
   /** e.g. 'spacetoco.atlassian.net' */
@@ -89,8 +89,9 @@ export const toReleases = (versions: JiraVersion[]): Release[] => {
   ));
 };
 
-/** Earliest unreleased version. */
-export const currentReleaseOf = (releases: Release[]): string | null => releases.find((r) => !r.released)?.name ?? null;
+/** Earliest unreleased version, skipping rolling versions that never ship on their own. */
+export const currentReleaseOf = (releases: Release[]): string | null => releases
+  .find((r) => !r.released && !ROLLING_VERSIONS.includes(r.name))?.name ?? null;
 
 /**
  * Fill in Jira data on items, flag keys Jira doesn't know, and add release tickets that aren't in the git window:

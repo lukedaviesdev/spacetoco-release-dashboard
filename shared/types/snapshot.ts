@@ -1,10 +1,15 @@
-import type { BRANCHES, PRESENCES, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../utils/snapshot';
+import type { PRESENCES, REPOS, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../utils/snapshot';
 
-export type Branch = typeof BRANCHES[number];
+export type RepoId = typeof REPOS[number]['id'];
+/** Any env branch in any repo. */
+export type Branch = typeof REPOS[number]['branches'][number];
 export type Presence = typeof PRESENCES[number];
 export type StatusCategory = typeof STATUS_CATEGORIES[number];
 export type Verdict = typeof VERDICTS[number];
 export type Warning = typeof WARNINGS[number];
+
+/** Presence on each of one repo's branches. */
+export type RepoPresence = Partial<Record<Branch, Presence>>;
 
 export interface Release {
   name: string
@@ -13,6 +18,7 @@ export interface Release {
 }
 
 export interface PullRequest {
+  repo: RepoId
   number: number
   headRef: string
   /** Branch the PR merged into. */
@@ -31,20 +37,22 @@ export interface JiraInfo {
 }
 
 export interface Item {
-  /** Ticket key ('DEV-1314') or 'pr-<number>' for untracked work. */
+  /** Ticket key ('DEV-1314'), or '<repo>-pr-<number>' / '<repo>-commit-<sha7>' for untracked work. */
   id: string
   kind: 'ticket' | 'untracked'
   title: string
   jira?: JiraInfo
   invalidKey?: boolean
   prs: PullRequest[]
-  presence: Record<Branch, Presence>
-  /** Reached main outside a staging release. */
+  /** Only repos with work for this item; empty for a ticket not merged anywhere yet. */
+  presence: Partial<Record<RepoId, RepoPresence>>
+  /** Some PR merged straight into a branch other than develop. */
   hotfix: boolean
   warnings: Warning[]
 }
 
 export interface Hop {
+  repo: RepoId
   from: Branch
   to: Branch
   verdict: Verdict
@@ -59,10 +67,12 @@ export interface Hop {
 export interface Snapshot {
   /** ISO timestamp. */
   generatedAt: string
-  /** Short SHAs of each branch head. */
-  heads: Record<Branch, string>
+  /** Short SHAs of each repo's branch heads. */
+  heads: Partial<Record<RepoId, RepoHeads>>
   releases: Release[]
   currentRelease: string | null
   items: Item[]
   hops: Hop[]
 }
+
+export type RepoHeads = Partial<Record<Branch, string>>;

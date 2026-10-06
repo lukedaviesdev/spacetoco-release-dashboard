@@ -1,6 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import type { Item } from '../../shared/types/snapshot.ts';
+import type { Branch, Item } from '../../shared/types/snapshot.ts';
+import { BRANCHES } from '../../shared/utils/snapshot.ts';
+import { extractKey, mergePresence } from './git.ts';
 
 export interface PrDetails {
   title: string;
@@ -32,6 +34,36 @@ export const applyPrs = (items: Item[], details: Map<number, PrDetails>): Item[]
     ...(untrackedTitle && { title: untrackedTitle }),
   };
 });
+
+/**
+ * Untracked items whose PR title names a ticket ('[DEV-1127] ✨ Special Access Spaces') join that ticket,
+ * or become it if git found no other work for the key.
+ */
+export const rekeyByPrTitle = (items: Item[], projects: string[]): Item[] => {
+  const byId = new Map(items.map((i) => [i.id, i]));
+  for (const item of items) {
+    const key = item.kind === 'untracked' && item.prs[0]?.title ? extractKey(item.prs[0].title, projects) : undefined;
+    if (!key) continue;
+    byId.delete(item.id);
+    const ticket = byId.get(key);
+    const warnings = item.warnings.filter((w) => w !== 'untracked');
+    byId.set(key, ticket ? {
+      ...ticket,
+      prs: [...ticket.prs, ...item.prs.filter((pr) => !ticket.prs.some((p) => p.number === pr.number))],
+      presence: Object.fromEntries(
+        BRANCHES.map((b) => [b, mergePresence(ticket.presence[b], item.presence[b])]),
+      ) as Record<Branch, Item['presence'][Branch]>,
+      hotfix: ticket.hotfix || item.hotfix,
+      warnings: [...new Set([...ticket.warnings, ...warnings])],
+    } : {
+      ...item,
+      id: key,
+      kind: 'ticket',
+      warnings,
+    });
+  }
+  return [...byId.values()];
+};
 
 export const readPrs = async (
   config: GitHubConfig,

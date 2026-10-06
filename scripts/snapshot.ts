@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util';
 import type { Snapshot } from '../shared/types/snapshot.ts';
 import { BRANCHES } from '../shared/utils/snapshot.ts';
 import { readGit } from './lib/git.ts';
-import { applyPrs, readPrs } from './lib/github.ts';
+import { applyPrs, readPrs, rekeyByPrTitle } from './lib/github.ts';
 import { applyJira, readJira } from './lib/jira.ts';
 
 const env = process.env;
@@ -39,13 +39,28 @@ const projects = (env.JIRA_PROJECTS ?? 'DEV,BUG').split(',').map((p) => p.trim()
 
 if (values.fetch) execFileSync('git', ['-C', repo, 'fetch', '--quiet', 'origin', ...BRANCHES], { stdio: 'inherit' });
 
-const { heads, items: gitItems } = readGit({
+const { heads, items: gitItems, syncedKeys } = readGit({
   repo,
   projects,
 });
 let items = gitItems;
 let releases: Snapshot['releases'] = [];
 let currentRelease: Snapshot['currentRelease'] = null;
+
+if (env.GITHUB_TOKEN) {
+  const numbers = [...new Set(items.flatMap((i) => i.prs.map((pr) => pr.number)))];
+  const details = await readPrs({
+    token: env.GITHUB_TOKEN,
+    repo: env.GITHUB_REPO || 'spacetoco/spacetoco-app',
+    cachePath: '.cache/github-prs.json',
+  }, numbers);
+  // Before Jira, so tickets found via PR titles get their Jira data too.
+  items = rekeyByPrTitle(applyPrs(items, details), projects);
+  log(`GitHub: details for ${details.size} PRs.`);
+}
+else {
+  log('GitHub: skipped (set GITHUB_TOKEN).');
+}
 
 if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
   const jira = await readJira({
@@ -55,7 +70,7 @@ if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
     projects,
     cloudId: env.JIRA_CLOUD_ID || undefined,
   }, items.filter((i) => i.kind === 'ticket').map((i) => i.id));
-  items = applyJira(items, jira);
+  items = applyJira(items, jira, syncedKeys);
   ({ releases, currentRelease } = jira);
   const unknown = jira.missingKeys.length ? ` (${jira.missingKeys.join(', ')})` : '';
   log(`Jira: ${jira.issues.size} issues, ${releases.length} versions, current release ${currentRelease ?? 'none'}, `
@@ -63,20 +78,6 @@ if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
 }
 else {
   log('Jira: skipped (set JIRA_EMAIL and JIRA_API_TOKEN).');
-}
-
-if (env.GITHUB_TOKEN) {
-  const numbers = [...new Set(items.flatMap((i) => i.prs.map((pr) => pr.number)))];
-  const details = await readPrs({
-    token: env.GITHUB_TOKEN,
-    repo: env.GITHUB_REPO || 'spacetoco/spacetoco-app',
-    cachePath: '.cache/github-prs.json',
-  }, numbers);
-  items = applyPrs(items, details);
-  log(`GitHub: details for ${details.size} PRs.`);
-}
-else {
-  log('GitHub: skipped (set GITHUB_TOKEN).');
 }
 
 const snapshot: Snapshot = {

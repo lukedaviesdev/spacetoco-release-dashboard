@@ -1,0 +1,410 @@
+{
+  "generatedAt": "2026-10-06T09:30:00Z",
+  "heads": {
+    "develop": "ba75722",
+    "staging": "7a177c9",
+    "main": "3f1e0d2",
+    "demo": "c81a9b4",
+    "main-uk": "5d2e7f1",
+    "demo-uk": "9e04a3c"
+  },
+  "releases": [
+    {
+      "name": "27.2.2",
+      "released": true,
+      "releaseDate": "2026-10-01"
+    },
+    {
+      "name": "27.3.0",
+      "released": false,
+      "releaseDate": "2026-10-15"
+    },
+    {
+      "name": "27.4.0",
+      "released": false,
+      "releaseDate": "2026-10-29"
+    }
+  ],
+  "currentRelease": "27.3.0",
+  "items": [
+    {
+      "id": "DEV-1314",
+      "kind": "ticket",
+      "title": "Cannot book a space although slots are available",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [
+          "27.3.0"
+        ],
+        "sprint": "Sprint 41",
+        "assignee": "Minh Tran"
+      },
+      "prs": [
+        {
+          "number": 1162,
+          "headRef": "DEV-1314-Cannot-book-a-space",
+          "base": "develop",
+          "title": "Booking time display issue fixes",
+          "author": "minh-tran",
+          "mergedAt": "2026-10-02T04:11:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "merged",
+        "staging": "merged",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": []
+    },
+    {
+      "id": "DEV-1189",
+      "kind": "ticket",
+      "title": "Proton map CI workflow",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [
+          "27.3.0"
+        ],
+        "sprint": "Sprint 41",
+        "assignee": "Sam Patel"
+      },
+      "prs": [
+        {
+          "number": 1186,
+          "headRef": "DEV-1189-proton-map-ci-workflow",
+          "base": "develop",
+          "title": "Reduce concurrency and chunk size",
+          "author": "sam-patel",
+          "mergedAt": "2026-10-03T08:40:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "merged",
+        "staging": "none",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": []
+    },
+    {
+      "id": "DEV-1113",
+      "kind": "ticket",
+      "title": "Organisation dashboard filters",
+      "jira": {
+        "status": "In QA",
+        "statusCategory": "indeterminate",
+        "fixVersions": [
+          "27.3.0"
+        ],
+        "sprint": "Sprint 41",
+        "assignee": "Hana Lee"
+      },
+      "prs": [
+        {
+          "number": 1151,
+          "headRef": "DEV-1113",
+          "base": "develop",
+          "title": "Organisation dashboard filters",
+          "author": "hana-lee",
+          "mergedAt": "2026-10-05T02:15:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "merged",
+        "staging": "merged",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": []
+    },
+    {
+      "id": "DEV-973",
+      "kind": "ticket",
+      "title": "Integrate new domain structure into mono repo",
+      "jira": {
+        "status": "In Progress",
+        "statusCategory": "indeterminate",
+        "fixVersions": [
+          "27.4.0"
+        ],
+        "sprint": "Sprint 42",
+        "assignee": "Luke Davies"
+      },
+      "prs": [
+        {
+          "number": 1148,
+          "headRef": "DEV-973-Integrate-new-domain-structure-into-mono-repo",
+          "base": "develop",
+          "title": "Integrate new domain structure",
+          "author": "lukedavies-spacetoco",
+          "mergedAt": "2026-10-04T06:00:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "merged",
+        "staging": "merged",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": []
+    },
+    {
+      "id": "DEV-1200",
+      "kind": "ticket",
+      "title": "Space page stuck loading on main",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [
+          "27.2.2"
+        ],
+        "sprint": "Sprint 40",
+        "assignee": "Minh Tran"
+      },
+      "prs": [
+        {
+          "number": 1080,
+          "headRef": "DEV-1200-space-loading-bug-main",
+          "base": "main",
+          "title": "Fix space loading bug",
+          "author": "minh-tran",
+          "mergedAt": "2026-09-09T03:20:00Z"
+        },
+        {
+          "number": 1086,
+          "headRef": "DEV-1200-space-loading-bug-main",
+          "base": "main",
+          "title": "Fix space loading bug (follow-up)",
+          "author": "minh-tran",
+          "mergedAt": "2026-09-09T05:02:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "none",
+        "staging": "picked",
+        "main": "merged",
+        "demo": "merged",
+        "main-uk": "merged",
+        "demo-uk": "merged"
+      },
+      "hotfix": true,
+      "warnings": []
+    },
+    {
+      "id": "pr-1066",
+      "kind": "untracked",
+      "title": "seo-hotfix",
+      "prs": [
+        {
+          "number": 1066,
+          "headRef": "seo-hotfix",
+          "base": "main",
+          "title": "SEO indexing hotfix",
+          "author": "sam-patel",
+          "mergedAt": "2026-09-07T01:45:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "none",
+        "staging": "none",
+        "main": "merged",
+        "demo": "merged",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": true,
+      "warnings": [
+        "untracked"
+      ]
+    },
+    {
+      "id": "DEV-1325",
+      "kind": "ticket",
+      "title": "Update host terms copy",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [],
+        "sprint": "Sprint 41",
+        "assignee": "Hana Lee"
+      },
+      "prs": [
+        {
+          "number": 1190,
+          "headRef": "DEV-1325-host-terms-copy",
+          "base": "develop",
+          "title": "Update host terms copy",
+          "author": "hana-lee",
+          "mergedAt": "2026-10-05T09:30:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "merged",
+        "staging": "merged",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": [
+        "done-no-fixversion"
+      ]
+    },
+    {
+      "id": "DEV-11940",
+      "kind": "ticket",
+      "title": "bugfix submit casual bookings",
+      "invalidKey": true,
+      "prs": [
+        {
+          "number": 1107,
+          "headRef": "DEV-11940bugfix-submit-casual-bookings-main",
+          "base": "main",
+          "title": "Submit casual bookings fix",
+          "author": "sam-patel",
+          "mergedAt": "2026-09-14T07:10:00Z"
+        }
+      ],
+      "presence": {
+        "develop": "merged",
+        "staging": "merged",
+        "main": "partial",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": true,
+      "warnings": [
+        "invalid-key"
+      ]
+    },
+    {
+      "id": "DEV-1340",
+      "kind": "ticket",
+      "title": "Kiosk mode availability list",
+      "jira": {
+        "status": "To Do",
+        "statusCategory": "new",
+        "fixVersions": [
+          "27.3.0"
+        ],
+        "sprint": "Sprint 41",
+        "assignee": "Luke Davies"
+      },
+      "prs": [],
+      "presence": {
+        "develop": "none",
+        "staging": "none",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": [
+        "not-on-develop"
+      ]
+    },
+    {
+      "id": "DEV-1350",
+      "kind": "ticket",
+      "title": "Bulk booking export",
+      "jira": {
+        "status": "To Do",
+        "statusCategory": "new",
+        "fixVersions": [
+          "27.4.0"
+        ],
+        "sprint": "Sprint 42"
+      },
+      "prs": [],
+      "presence": {
+        "develop": "none",
+        "staging": "none",
+        "main": "none",
+        "demo": "none",
+        "main-uk": "none",
+        "demo-uk": "none"
+      },
+      "hotfix": false,
+      "warnings": []
+    }
+  ],
+  "hops": [
+    {
+      "from": "develop",
+      "to": "staging",
+      "verdict": "clean",
+      "aheadIds": [
+        "DEV-1189"
+      ],
+      "blockingIds": [],
+      "backSyncIds": [
+        "DEV-1200"
+      ]
+    },
+    {
+      "from": "staging",
+      "to": "main",
+      "verdict": "cherry-pick",
+      "aheadIds": [
+        "DEV-1314",
+        "DEV-973",
+        "DEV-1113",
+        "DEV-1325",
+        "DEV-11940"
+      ],
+      "blockingIds": [
+        "DEV-973",
+        "DEV-1113",
+        "DEV-1325",
+        "DEV-11940"
+      ],
+      "backSyncIds": [
+        "pr-1066"
+      ]
+    },
+    {
+      "from": "main",
+      "to": "demo",
+      "verdict": "in-sync",
+      "aheadIds": [],
+      "blockingIds": [],
+      "backSyncIds": []
+    },
+    {
+      "from": "main",
+      "to": "main-uk",
+      "verdict": "sync",
+      "aheadIds": [
+        "pr-1066"
+      ],
+      "blockingIds": [],
+      "backSyncIds": []
+    },
+    {
+      "from": "main-uk",
+      "to": "demo-uk",
+      "verdict": "in-sync",
+      "aheadIds": [],
+      "blockingIds": [],
+      "backSyncIds": []
+    }
+  ]
+}

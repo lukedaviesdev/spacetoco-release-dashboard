@@ -176,6 +176,11 @@ describe('applyJira', () => {
     expect(byId.get('pr-7')!.jira).toBeUndefined();
   });
 
+  it('marks release tickets already on every branch as merged everywhere', () => {
+    const synced = applyJira([], result, ['DEV-9']).find((i) => i.id === 'DEV-9');
+    expect(Object.values(synced!.presence).every((p) => p === 'merged')).toBe(true);
+  });
+
   it('adds release tickets that are on no branch yet', () => {
     const added = byId.get('DEV-9')!;
     expect(Object.values(added.presence).every((p) => p === 'none')).toBe(true);

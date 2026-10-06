@@ -29,6 +29,13 @@ export function combinePresence(commits: ('merged' | 'picked' | 'missing')[]): P
   return commits.includes('picked') ? 'picked' : 'merged';
 }
 
+/** Presence of two items' work combined, e.g. when an untracked PR turns out to belong to a ticket. */
+export function mergePresence(a: Presence, b: Presence): Presence {
+  if (a === 'none' && b === 'none') return 'none';
+  if (a === 'none' || b === 'none' || a === 'partial' || b === 'partial') return 'partial';
+  return a === 'merged' && b === 'merged' ? 'merged' : 'picked';
+}
+
 /** 'DEV-1314-Cannot-book-a-space' → 'Cannot book a space'. Placeholder title until Jira/GitHub enrichment. */
 export function titleFromRef(headRef: string): string {
   return headRef.replace(/^[^/]*\//, '').replace(/^[A-Z]+-\d+-?/i, '').replace(/[-_]+/g, ' ').trim() || headRef;
@@ -46,6 +53,8 @@ export interface GitOptions {
 export interface GitSnapshot {
   heads: Record<Branch, string>
   items: Item[]
+  /** Ticket keys whose work is already on every env branch (outside the window). */
+  syncedKeys: string[]
 }
 
 const SEP = '\x1F';
@@ -65,6 +74,13 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
   // Window: reachable from some env branch but not from all of them.
   const notInAll = lines('merge-base', '--octopus', '--all', ...refs).map(sha => `^${sha}`);
   const window = [...refs, ...notInAll];
+
+  // Keys in history every branch shares: those tickets are fully synced, so they never enter the window.
+  // ponytail: scans all shared history's subjects (~0.2s on spacetoco-app); bound it with --since if it grows slow.
+  const bases = notInAll.map((ref) => ref.slice(1));
+  const syncedKeys = new Set(
+    lines('log', '--format=%s', ...bases).map((s) => extractKey(s, projects)).filter(Boolean) as string[],
+  );
 
   // Non-merge commits in the window with their subjects, oldest first.
   const subjects = new Map<string, string>();
@@ -196,5 +212,6 @@ export function readGit({ repo, remote = 'origin/', projects = DEFAULT_PROJECTS 
   return {
     heads,
     items,
+    syncedKeys: [...syncedKeys],
   };
 }

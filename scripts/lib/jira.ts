@@ -93,9 +93,10 @@ export const toReleases = (versions: JiraVersion[]): Release[] => {
 export const currentReleaseOf = (releases: Release[]): string | null => releases.find((r) => !r.released)?.name ?? null;
 
 /**
- * Fill in Jira data on items, flag keys Jira doesn't know, and add release tickets that aren't on any branch yet.
+ * Fill in Jira data on items, flag keys Jira doesn't know, and add release tickets that aren't in the git window:
+ * already on every branch if their key is in `syncedKeys`, otherwise on none yet.
  */
-export const applyJira = (items: Item[], result: JiraResult): Item[] => {
+export const applyJira = (items: Item[], result: JiraResult, syncedKeys: string[] = []): Item[] => {
   const missing = new Set(result.missingKeys);
   const enriched = items.map((item): Item => {
     if (item.kind !== 'ticket') return item;
@@ -115,7 +116,8 @@ export const applyJira = (items: Item[], result: JiraResult): Item[] => {
   });
 
   const seen = new Set(items.map((i) => i.id));
-  const none = Object.fromEntries(BRANCHES.map((b) => [b, 'none'])) as Record<Branch, Presence>;
+  const synced = new Set(syncedKeys);
+  const everywhere = (presence: Presence) => Object.fromEntries(BRANCHES.map((b) => [b, presence])) as Record<Branch, Presence>;
   for (const [key, issue] of result.issues) {
     if (seen.has(key)) continue;
     enriched.push({
@@ -124,7 +126,7 @@ export const applyJira = (items: Item[], result: JiraResult): Item[] => {
       title: issue.summary,
       jira: issue.jira,
       prs: [],
-      presence: { ...none },
+      presence: everywhere(synced.has(key) ? 'merged' : 'none'),
       hotfix: false,
       warnings: [],
     });

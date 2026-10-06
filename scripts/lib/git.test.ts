@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Item } from '../../shared/types/snapshot';
-import { combinePresence, extractKey, parsePrMerge, readGit, titleFromRef } from './git';
+import { combinePresence, extractKey, mergePresence, parsePrMerge, readGit, titleFromRef } from './git';
 
 describe('pure helpers', () => {
   it('extracts ticket keys from branch names and subjects', () => {
@@ -37,6 +37,13 @@ describe('pure helpers', () => {
     expect(combinePresence(['missing'])).toBe('none');
   });
 
+  it('merges two items\' presence', () => {
+    expect(mergePresence('merged', 'merged')).toBe('merged');
+    expect(mergePresence('merged', 'picked')).toBe('picked');
+    expect(mergePresence('merged', 'none')).toBe('partial');
+    expect(mergePresence('none', 'none')).toBe('none');
+  });
+
   it('makes a readable placeholder title from a ref', () => {
     expect(titleFromRef('DEV-1314-Cannot-book-a-space')).toBe('Cannot book a space');
     expect(titleFromRef('cursor/dev-1113-tasks')).toBe('tasks');
@@ -48,6 +55,7 @@ describe('readGit on a scripted repo', () => {
   let repo: string;
   let items: Map<string, Item>;
   let heads: Record<string, string>;
+  let syncedKeys: string[];
 
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], {
     encoding: 'utf8',
@@ -76,6 +84,7 @@ describe('readGit on a scripted repo', () => {
     repo = mkdtempSync(join(tmpdir(), 'release-dashboard-'));
     git('init', '-q', '-b', 'main');
     commit('base.txt', 'base', 'initial');
+    commit('shared.txt', 'shared', '[DEV-100] already released everywhere');
     for (const b of ['develop', 'staging', 'demo', 'main-uk', 'demo-uk']) git('branch', b);
 
     // DEV-1: released develop → staging → main, then main → main-uk.
@@ -118,6 +127,7 @@ describe('readGit on a scripted repo', () => {
     });
     items = new Map(snapshot.items.map(i => [i.id, i]));
     heads = snapshot.heads;
+    syncedKeys = snapshot.syncedKeys;
   });
 
   afterAll(() => rmSync(repo, {
@@ -175,7 +185,9 @@ describe('readGit on a scripted repo', () => {
     expect(items.get('pr-10')!.title).toBe('specialaccessdemo');
   });
 
-  it('leaves out work that is on every branch', () => {
+  it('leaves out work that is on every branch, but reports its keys as synced', () => {
     expect([...items.keys()].some(id => id.includes('initial'))).toBe(false);
+    expect(items.has('DEV-100')).toBe(false);
+    expect(syncedKeys).toEqual(['DEV-100']);
   });
 });

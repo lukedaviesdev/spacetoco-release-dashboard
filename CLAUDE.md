@@ -1,6 +1,6 @@
 # spacetoco-release-dashboard
 
-Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local clone `~/Dev/spacetoco-app`). Shows which Jira tickets / PRs are on which env branch and whether each hop merges cleanly, needs cherry-picking, or needs a back-sync.
+Read-only release dashboard for `spacetoco/spacetoco-app` (the monorepo) and `spacetoco/spacetoco-api` (the backend), from local clones in `~/Dev/`. Shows which Jira tickets / PRs are on which env branch and whether each hop merges cleanly, needs cherry-picking, or needs a back-sync.
 
 ## Start here
 
@@ -22,7 +22,7 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 - **Read the relevant docs before starting each phase** (list below and per phase in the roadmap). Prefer `llms.txt` where available.
 - **Use the packages before writing anything custom**: Vuetify components, VueUse composables, native git commands.
 - All git/Jira/verdict logic lives in the snapshot script and `shared/`; the app only renders `snapshot.json`.
-- Never write to the monorepo, git remotes or Jira. Read-only, always.
+- **Read-only, always, for the app and for Claude.** Never write to Jira or to the `spacetoco` GitHub org/repos: no issues, comments, PRs, labels, transitions, pushes. Reads only (git fetch, GitHub GETs, Jira GETs plus the read-only `bulkfetch`/`search/jql` POSTs, which `scripts/lib/jira.ts` enforces). PRs on this dashboard's own repo are fine while it's personal; ask again once it moves to the org.
 - Secrets only in `.env` (gitignored) / Action secrets. Never in the static bundle.
 - Git workflow: Phase 0 straight to `main`; after that, branch `phase-N-<slug>` with atomic commits, and **always open a PR at the end of every phase** with the phase's "Done when" checklist in the description. The user verifies against it and merges. Don't start the next phase until the PR merges.
 - Update the docs as each phase is built; mark roadmap status.
@@ -48,5 +48,5 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 
 - `pnpm fixture`: copy the test fixture to `public/snapshot.json`
 - `pnpm dev`: app against `public/snapshot.json`
-- `pnpm snapshot --repo ~/Dev/spacetoco-app [--fetch]`: regenerate the snapshot
+- `pnpm snapshot [--fetch]`: regenerate the snapshot from `~/Dev/spacetoco-app` and `~/Dev/spacetoco-api` (override with `APP_REPO_PATH` / `API_REPO_PATH`)
 - `pnpm test:unit` / `pnpm typecheck` / `pnpm lint`

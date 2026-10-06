@@ -26,6 +26,12 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Real snapshots contain internal ticket data: never commit them.** `public/snapshot.json` is gitignored; the committed fixture lives in `shared/fixtures/`. Doubly important while the repo is on a personal account. (Phase 1)
 - **Check every new directory is in a typecheck context.** Nuxt only typechecks its own dirs (`pages/`, `composables/`, `server/`, `shared/`…) by default; `scripts/` is added via `typescript.nodeTsConfig.include`. (Phase 1)
 
+- **A ticket isn't "missing" just because it's outside the git window.** Work already on every branch never enters the window, so check each repo's shared history for the key (`syncedKeys`).
+  **Why:** the first real Jira run showed 65 Done tickets in 27.3.0 as "on no branch" when they were already released. (Phase 2)
+- **Find keys anywhere a human puts them: branch name, commit subject, PR title.** (Phase 2, `#1173 specialaccessdemo` was titled `[DEV-1127] …`)
+- **Ask what else ships under the same Jira keys before trusting "not merged" signals.** DEV tickets also land in `spacetoco-api`; without that repo they'd all read as missing. (Phase 2, user correction)
+- **External API facts come from current docs, not memory.** Scoped Atlassian tokens only work via `api.atlassian.com/ex/jira/{cloudId}`, and `bulkfetch` silently drops unknown keys. Both were found by reading the docs first. (Phase 2)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
@@ -34,6 +40,11 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **App `eslint.config.mjs` has no `// @ts-check`**, as in the monorepo; the a11y plugin's types don't fit `withNuxt`. (Phase 1)
 - **`comma-dangle: always-multiline` is on**, because `object-property-newline` autofix otherwise leaves multiline objects without trailing commas. (Phase 1)
 - **CLI output goes through `process.stdout.write`**, since `no-console` only allows warn/error. (Phase 1)
+
+## Safety
+
+- **Read-only towards SpacetoCo, for the app and for Claude.** Never write to Jira or the `spacetoco` GitHub org/repos: no issues, comments, PRs, transitions, pushes. The Jira client refuses non-read requests in code. If a SpacetoCo repo needs a change, hand the user the diff. (Phase 2, user rule)
+- **Never handle the user's tokens.** They create them and put them in `.env`; Claude doesn't paste, print or create them. (Phase 2)
 
 ## Environment (for Claude)
 

@@ -15,6 +15,7 @@ Chosen from three sketched directions (transit map, departure board, well plate)
 
 The branch topology already *is* a rail network: a trunk `develop → staging → main → demo` with a branch line `main → main-uk → demo-uk`.
 
+- **Two networks**: the `spacetoco-app` line (trunk + UK branch line) and a short `spacetoco-api` line (develop → staging → main) beneath it, aligned so the shared develop/staging/main stations line up.
 - **Stations** = branches. Each shows its head SHA on hover.
 - **Track segments** = hops, carrying the hop verdict as a signal: clear (`clean` / `in-sync`), ✂ cherry-pick (`n of N`), ➡ `N to sync`.
 - **Back-sync** = a red track running backwards under the segment ("← 2 hotfixes back-sync").
@@ -25,7 +26,7 @@ The branch topology already *is* a rail network: a trunk `develop → staging �
 
 ### Detail: well plate
 
-- One row per item; six wells in branch order `develop, staging, main, demo, main-uk, demo-uk`.
+- One row per item. Six app wells (`develop, staging, main, demo, main-uk, demo-uk`), then three api wells (`develop, staging, main`), visually grouped by repo. A repo the item has no work in shows no wells rather than empty ones, so a backend-only ticket reads differently from an unmerged one.
 - Well fill encodes presence: `merged` filled, `picked` visibly different (e.g. ring or half-fill: "got there by cherry-pick"), `partial` partial, `none` empty.
 - Well colour encodes readiness for the selected release: ready (in release + Done), not ready, not in release, hotfix. Problem shapes should be recognisable: a red row filled on the left = in staging but shouldn't be; a blue row filled on the right = hotfix that needs back-syncing.
 - Built on `v-data-table` with grouping by **fixVersion**. Groups: selected release first, then other unreleased versions, then "no fixVersion", then "untracked".

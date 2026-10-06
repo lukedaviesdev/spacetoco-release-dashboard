@@ -105,12 +105,14 @@ Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `ju
 
 **Ahead / back-sync.** Each item's presence on a branch ranks `none` < `partial` < `merged` = `picked`. The item is *ahead* on `A→B` when A ranks higher than B, and needs a *back-sync* when B ranks higher than A. Two `partial`s can't be compared, so they're neither. Items with no work in the repo are ignored for its hops.
 
-**Ready** = Done, and its fixVersions include the selected release **or a rolling version** (`ROLLING_VERSIONS`: "Rolling Hotfixes", which ships with whatever release is next and is never the current release).
+**Ready** = its fixVersions include the selected release **or a rolling version** (`ROLLING_VERSIONS`: "Rolling Hotfixes", which ships with whatever release is next and is never the current release). Going to main also needs it **Done**:
+- `develop→staging`: in the release, any status. Staging is where release work gets tested.
+- `staging→main`: in the release **and Done**. Anything else on staging is what gets cherry-picked out before main. This is the gate that matters.
 
 | Hop | Verdict | Condition |
 |---|---|---|
 | `develop→staging`, `staging→main` (each repo) | `in-sync` | nothing ahead |
-| | `clean` | everything ahead is ready |
+| | `clean` | everything ahead is ready for this hop |
 | | `cherry-pick` | some items ahead aren't ready (`blockingIds`). Untracked work always blocks. |
 | app `main→demo`, `main→main-uk`, `main-uk→demo-uk` | `in-sync` / `sync` | `sync` = N items ahead |
 | every hop | `backSyncIds` | reported alongside the forward verdict |

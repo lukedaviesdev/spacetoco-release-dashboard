@@ -40,6 +40,8 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Anything the snapshot CLI imports must use explicit `.ts` import paths, `shared/` included.** Vitest resolves extensionless imports and plain Node doesn't, so tests passed while the CLI would crash. `scripts/node-imports.test.ts` guards it. (Phase 3)
 - **Warnings have one owner: `computeWarnings`.** Earlier phases set some warnings inline, which would have drifted from the release-dependent ones. (Phase 3)
 
+- **Readiness differs per hop.** develop→staging only needs the ticket in the release (staging is where it gets tested); staging→main also needs it Done. A single "ready" rule for both hops was wrong. (Phase 3, user correction)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.

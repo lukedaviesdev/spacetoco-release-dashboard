@@ -111,9 +111,11 @@ Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `ju
 
 | Hop | Verdict | Condition |
 |---|---|---|
-| `develop→staging`, `staging→main` (each repo) | `in-sync` | nothing ahead |
-| | `clean` | everything ahead is ready for this hop |
-| | `cherry-pick` | some items ahead aren't ready (`blockingIds`). Untracked work always blocks. |
+| `develop→staging` (each repo) | `in-sync` | nothing ahead |
+| | `clean` | everything coming over is in the release |
+| | `merge-with-extras` | develop still merges whole, but work outside the release comes along (`blockingIds`). It'll show as cherry-pick-outs at staging→main. Untracked work always counts as extra. |
+| `staging→main` (each repo) | `in-sync` / `clean` | nothing ahead / everything ahead is in the release and Done |
+| | `cherry-pick` | items on staging that aren't in the release and Done (`blockingIds`): cherry-pick the rest to main, or hold these back |
 | app `main→demo`, `main→main-uk`, `main-uk→demo-uk` | `in-sync` / `sync` | `sync` = N items ahead |
 | every hop | `backSyncIds` | reported alongside the forward verdict |
 

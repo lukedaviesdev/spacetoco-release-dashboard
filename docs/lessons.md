@@ -40,7 +40,7 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Anything the snapshot CLI imports must use explicit `.ts` import paths, `shared/` included.** Vitest resolves extensionless imports and plain Node doesn't, so tests passed while the CLI would crash. `scripts/node-imports.test.ts` guards it. (Phase 3)
 - **Warnings have one owner: `computeWarnings`.** Earlier phases set some warnings inline, which would have drifted from the release-dependent ones. (Phase 3)
 
-- **Readiness differs per hop.** develop→staging only needs the ticket in the release (staging is where it gets tested); staging→main also needs it Done. A single "ready" rule for both hops was wrong. (Phase 3, user correction)
+- **Model the team's actual release process, not a generic one.** develop always merges into staging whole and gets tested there; the only cherry-picking is out of staging before main. So develop→staging needs only release membership and reports `merge-with-extras`, never `cherry-pick`; staging→main needs release + Done. (Phase 3, user correction ×2)
 
 ## Conventions
 

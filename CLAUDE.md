@@ -11,6 +11,14 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 
 ## Working rules
 
+- **Follow spacetoco-app conventions** so this can move into the monorepo as `apps/release-dashboard`:
+  - root-level `pages/`, `components/`, `composables/`, `shared/` (no `app/` dir)
+  - Pinia stores as `composables/use-<name>.store.ts`
+  - tests colocated as `<file>.test.ts` (node-only tests start with `// @vitest-environment node`)
+  - kebab-case files, folders and component tags; components as `components/<name>/<name>.vue`
+  - lint rules mirror `@spacetoco-app/eslint-config` in `eslint.config.mjs`: semicolons, max-len 128, no `console.log`
+  - check `~/Dev/spacetoco-app` for an existing pattern before inventing one
+
 - **Read the relevant docs before starting each phase** (list below and per phase in the roadmap). Prefer `llms.txt` where available.
 - **Use the packages before writing anything custom**: Vuetify components, VueUse composables, native git commands.
 - All git/Jira/verdict logic lives in the snapshot script and `shared/`; the app only renders `snapshot.json`.
@@ -41,4 +49,4 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 - `pnpm fixture`: copy the test fixture to `public/snapshot.json`
 - `pnpm dev`: app against `public/snapshot.json`
 - `pnpm snapshot --repo ~/Dev/spacetoco-app [--fetch]`: regenerate the snapshot
-- `pnpm test` / `pnpm typecheck`
+- `pnpm test:unit` / `pnpm typecheck` / `pnpm lint`

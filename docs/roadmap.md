@@ -2,14 +2,14 @@
 
 Source of truth for build phases. Status: `Not started` / `In progress` / `Done`.
 
-Each phase: read the listed docs first, build on branch `phase-N-<slug>` from `main` with atomic commits, update the docs as you go, open a PR once the user has checked the "Done when" items locally. Phase 0 goes straight to `main`.
+Each phase: read `docs/lessons.md` and the listed docs first, build on branch `phase-N-<slug>` from `main` with atomic commits, update the docs as you go, open a PR once the user has checked the "Done when" items locally. Phase 0 goes straight to `main`.
 
 The Phase 0 fixture `snapshot.json` is the contract between the data phases (1–3) and the UI phases (4–5).
 
 ---
 
 ## Phase 0: Scaffold + contract
-**Status:** In progress (built, awaiting user check)
+**Status:** Done
 **Docs:** Nuxt 4, Vuetify 4, vuetify-nuxt-module, Pinia (+ Nuxt), VueUse, Vitest, Nuxt testing
 
 - Nuxt 4 app with pnpm 10 / Node 24, `vuetify-nuxt-module`, `@pinia/nuxt`, `@vueuse/nuxt`, `@vueuse/router`, Vitest + `@nuxt/test-utils`, ESLint (`@nuxt/eslint`).

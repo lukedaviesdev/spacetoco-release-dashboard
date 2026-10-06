@@ -7,6 +7,7 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 1. `docs/roadmap.md`: which phase is in progress, what "done" means.
 2. `docs/architecture.md`: data flow, matching rules, verdict rules, snapshot contract.
 3. `docs/design.md`: transit-map header + well-plate detail, critic-loop process.
+4. `docs/lessons.md`: rules learned so far. **Follow them, and add one whenever a mistake or correction happens** (in the same commit as the fix).
 
 ## Working rules
 

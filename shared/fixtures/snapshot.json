@@ -232,7 +232,9 @@
         }
       },
       "hotfix": false,
-      "warnings": []
+      "warnings": [
+        "extra-on-staging"
+      ]
     },
     {
       "id": "DEV-1200",
@@ -383,6 +385,7 @@
       },
       "hotfix": false,
       "warnings": [
+        "extra-on-staging",
         "done-no-fixversion"
       ]
     },
@@ -414,6 +417,7 @@
       },
       "hotfix": true,
       "warnings": [
+        "extra-on-staging",
         "invalid-key"
       ]
     },

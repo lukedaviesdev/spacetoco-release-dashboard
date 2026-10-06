@@ -179,6 +179,28 @@ describe('computeWarnings', () => {
     expect(computeWarnings(i, R)).toEqual(warnings);
   });
 
+  describe('extra-on-staging', () => {
+    it.each([
+      ['another release, on staging not main', item('A', 'mm....', { jira: { fixVersions: ['3.0.0'] } }), ['extra-on-staging']],
+      ['no fixVersion, open, on staging', item('A', 'mm....', {
+        jira: {
+          fixVersions: [],
+          statusCategory: 'new',
+        },
+      }), ['extra-on-staging']],
+      ['untracked on staging', item('A', 'mm....', {
+        jira: null,
+        kind: 'untracked',
+      }), ['extra-on-staging', 'untracked']],
+      ['in the release but still testing', item('A', 'mm....', { jira: { statusCategory: 'indeterminate' } }), []],
+      ['rolling hotfix on staging', item('A', 'mm....', { jira: { fixVersions: ['Rolling Hotfixes'] } }), []],
+      ['another release, but already on main too', item('A', 'mmm...', { jira: { fixVersions: ['3.0.0'] } }), []],
+      ['another release, only on develop', item('A', 'm.....', { jira: { fixVersions: ['3.0.0'] } }), []],
+    ] as const)('%s', (_, i, warnings) => {
+      expect(computeWarnings(i, R)).toEqual(warnings);
+    });
+  });
+
   describe('missed-release', () => {
     const releases = [{
       name: '1.0.0',
@@ -193,7 +215,8 @@ describe('computeWarnings', () => {
 
     it('flags work whose versions have all shipped but that isn\'t on main', () => {
       expect(warn('m.....', ['1.0.0'])).toEqual(['missed-release']);
-      expect(warn('mmh...', ['1.0.0'])).toEqual(['missed-release']);
+      // On staging too, and not in the current release, so also an extra on staging.
+      expect(warn('mmh...', ['1.0.0'])).toEqual(['extra-on-staging', 'missed-release']);
     });
 
     it('stays quiet once it is on main, when it was carried into an unreleased version, or for rolling versions', () => {

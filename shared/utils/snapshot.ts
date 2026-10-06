@@ -39,4 +39,11 @@ export const ROLLING_VERSIONS = ['Rolling Hotfixes'];
 export const PRESENCES = ['merged', 'picked', 'partial', 'none'] as const;
 export const STATUS_CATEGORIES = ['new', 'indeterminate', 'done'] as const;
 export const VERDICTS = ['in-sync', 'clean', 'merge-with-extras', 'cherry-pick', 'sync'] as const;
-export const WARNINGS = ['not-on-develop', 'missed-release', 'done-no-fixversion', 'invalid-key', 'untracked'] as const;
+export const WARNINGS = [
+  'extra-on-staging',
+  'not-on-develop',
+  'missed-release',
+  'done-no-fixversion',
+  'invalid-key',
+  'untracked',
+] as const;

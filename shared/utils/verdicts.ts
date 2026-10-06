@@ -29,10 +29,12 @@ const RANK: Record<Presence, number> = {
 
 const rankOn = (item: Item, repo: RepoId, branch: Branch) => RANK[item.presence[repo]?.[branch] ?? 'none'];
 
+const inRelease = (item: Item, release: string | null) => !!item.jira?.fixVersions
+  .some((v) => v === release || ROLLING_VERSIONS.includes(v));
+
 /** In the release or a rolling version (and Done, if `needsDone`): safe to go through a release hop. */
-export const isReady = (item: Item, release: string | null, needsDone: boolean) => !!item.jira
-  && item.jira.fixVersions.some((v) => v === release || ROLLING_VERSIONS.includes(v))
-  && (!needsDone || item.jira.statusCategory === 'done');
+export const isReady = (item: Item, release: string | null, needsDone: boolean) => inRelease(item, release)
+  && (!needsDone || item.jira?.statusCategory === 'done');
 
 /** Every repo the item has work in holds all of it on `branch`. */
 const fullyOn = (item: Item, branch: Branch) => {
@@ -72,6 +74,10 @@ export const computeWarnings = (item: Item, release: string | null, releases: Re
   if (release && item.jira?.fixVersions.includes(release) && !fullyOn(item, 'develop')) warnings.push('not-on-develop');
   // Every version it's in has shipped, yet it isn't on main: it missed its release, or its fixVersion is stale.
   if (versions.length && versions.every((v) => shipped.has(v)) && !fullyOn(item, 'main')) warnings.push('missed-release');
+  // On staging ahead of main but not part of the release: it must not go to main, whatever its status.
+  const aheadOnStaging = (Object.keys(item.presence) as RepoId[])
+    .some((r) => rankOn(item, r, 'staging') > rankOn(item, r, 'main'));
+  if (release && aheadOnStaging && !inRelease(item, release)) warnings.unshift('extra-on-staging');
   if (item.jira?.statusCategory === 'done' && !item.jira.fixVersions.length) warnings.push('done-no-fixversion');
   if (item.invalidKey) warnings.push('invalid-key');
   if (item.kind === 'untracked') warnings.push('untracked');

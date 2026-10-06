@@ -460,7 +460,7 @@
       "repo": "app",
       "from": "develop",
       "to": "staging",
-      "verdict": "cherry-pick",
+      "verdict": "merge-with-extras",
       "aheadIds": [
         "DEV-1189",
         "DEV-1290"
@@ -530,7 +530,7 @@
       "repo": "api",
       "from": "develop",
       "to": "staging",
-      "verdict": "cherry-pick",
+      "verdict": "merge-with-extras",
       "aheadIds": [
         "DEV-973"
       ],

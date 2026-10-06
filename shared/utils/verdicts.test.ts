@@ -46,11 +46,13 @@ describe('release hops (develop→staging, staging→main)', () => {
     ['ahead and in the release but not Done yet (it goes to staging to be tested)', [item('A', 'm.....', {
       jira: { statusCategory: 'indeterminate' },
     })], 'clean', ['A'], []],
-    ['ahead but in another release', [item('A', 'm.....', { jira: { fixVersions: ['3.0.0'] } })], 'cherry-pick', ['A'], ['A']],
+    ['ahead but in another release', [item('A', 'm.....', {
+      jira: { fixVersions: ['3.0.0'] },
+    })], 'merge-with-extras', ['A'], ['A']],
     ['ahead with no Jira (untracked)', [item('A', 'm.....', {
       kind: 'untracked',
       jira: null,
-    })], 'cherry-pick', ['A'], ['A']],
+    })], 'merge-with-extras', ['A'], ['A']],
     ['partial on develop is still ahead of none', [item('A', 'h.....')], 'clean', ['A'], []],
     ['full on develop is ahead of partial on staging', [item('A', 'mh....')], 'clean', ['A'], []],
     ['two partials are not ahead', [item('A', 'hh....')], 'in-sync', [], []],
@@ -147,7 +149,7 @@ describe('repos', () => {
   });
 
   it('gives no release verdicts without a release', () => {
-    expect(computeHops([item('A', 'm.....')], null)[0]!.verdict).toBe('cherry-pick');
+    expect(computeHops([item('A', 'm.....')], null)[0]!.verdict).toBe('merge-with-extras');
   });
 });
 

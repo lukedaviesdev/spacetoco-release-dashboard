@@ -4,12 +4,19 @@ import type { Branch, Hop, Item, Presence, Release, RepoId, Warning } from '../t
 import { REPOS, ROLLING_VERSIONS } from './snapshot.ts';
 
 /**
- * Hops judged against the release; the others only report pending syncs. Staging is where release work gets
- * tested, so going to staging only needs the ticket in the release; going to main also needs it Done.
+ * Hops judged against the release; the others only report pending syncs. develop always merges into staging whole
+ * and release work is tested there, so that hop only flags extras (work outside the release coming along).
+ * staging→main is the gate: anything not in the release and Done gets cherry-picked out.
  */
-const RELEASE_HOPS: Record<string, { needsDone: boolean }> = {
-  'develop→staging': { needsDone: false },
-  'staging→main': { needsDone: true },
+const RELEASE_HOPS: Record<string, { needsDone: boolean, notReady: Hop['verdict'] }> = {
+  'develop→staging': {
+    needsDone: false,
+    notReady: 'merge-with-extras',
+  },
+  'staging→main': {
+    needsDone: true,
+    notReady: 'cherry-pick',
+  },
 };
 
 /** How much of an item's work a branch holds. `partial` is less than all of it; `picked` counts as all. */
@@ -40,13 +47,12 @@ export const computeHops = (items: Item[], release: string | null): Hop[] => REP
     const aheadIds = inRepo.filter((i) => rankOn(i, repo.id, from) > rankOn(i, repo.id, to)).map((i) => i.id);
     const backSyncIds = inRepo.filter((i) => rankOn(i, repo.id, to) > rankOn(i, repo.id, from)).map((i) => i.id);
     const releaseHop = RELEASE_HOPS[`${from}→${to}`];
-    const isReleaseHop = !!releaseHop;
     const blockingIds = releaseHop
       ? aheadIds.filter((id) => !isReady(items.find((i) => i.id === id)!, release, releaseHop.needsDone))
       : [];
     const verdict: Hop['verdict'] = !aheadIds.length
       ? 'in-sync'
-      : !isReleaseHop ? 'sync' : blockingIds.length ? 'cherry-pick' : 'clean';
+      : !releaseHop ? 'sync' : blockingIds.length ? releaseHop.notReady : 'clean';
     return {
       repo: repo.id,
       from,

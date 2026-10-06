@@ -7,6 +7,8 @@ Goal: answer three questions at a glance, before reading any ticket:
 
 Users: devs, QA, PMs.
 
+**The headline signal is work coming along when it shouldn't**: `merge-with-extras` on develop→staging (extras about to reach staging) and `cherry-pick` on staging→main (extras already on staging). These get the most visual weight; in-sync and clean hops should recede.
+
 ## Direction: transit map header + well-plate detail
 
 Chosen from three sketched directions (transit map, departure board, well plate). The user loved the **transit map as the header** and the **wells for the detail**.

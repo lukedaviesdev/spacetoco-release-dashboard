@@ -63,4 +63,5 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
 - **No git auth switching is needed until Phase 6.** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
+- **`gh pr edit` can fail on a Projects (classic) GraphQL error.** Update PR bodies with `gh api -X PATCH repos/<owner>/<repo>/pulls/<n> -F body=@file` instead. (Phase 3)
 - **Don't use `git stash` for quick experiments.** `git stash -- <untracked file>` stashes nothing, and a following `stash drop` would drop someone else's stash. Edit and revert the file directly. (Phase 3)

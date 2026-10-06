@@ -132,6 +132,17 @@ export const applyJira = (items: Item[], result: JiraResult): Item[] => {
   return enriched;
 };
 
+/**
+ * Drop Done tickets with no work in any repo: legacy tickets, or work committed under other keys.
+ * Not-Done tickets without code stay, since that's release work not merged yet. Run after addSyncedPresence.
+ */
+export const dropDoneWithoutCode = (items: Item[]): Item[] => items.filter((item) => !(
+  item.kind === 'ticket'
+  && item.jira?.statusCategory === 'done'
+  && !item.prs.length
+  && !Object.keys(item.presence).length
+));
+
 // ---------- API ----------
 
 const FIELDS = ['summary', 'status', 'fixVersions', 'assignee'];

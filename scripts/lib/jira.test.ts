@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import type { Item } from '../../shared/types/snapshot';
-import { applyJira, currentReleaseOf, mapIssue, pickSprint, readJira, toReleases, type JiraIssue } from './jira';
+import { applyJira, currentReleaseOf, dropDoneWithoutCode, mapIssue, pickSprint, readJira, toReleases, type JiraIssue } from './jira';
 
 // Made-up data in the shape of Jira Cloud v3 responses.
 const issue = (key: string, over: Partial<JiraIssue['fields']> = {}): JiraIssue => ({
@@ -173,6 +173,31 @@ describe('applyJira', () => {
     const added = byId.get('DEV-9')!;
     expect(added.presence).toEqual({});
     expect(added.prs).toEqual([]);
+  });
+});
+
+describe('dropDoneWithoutCode', () => {
+  const jiraOnly = (id: string, statusCategory: 'new' | 'done'): Item => ({
+    ...gitItem(id),
+    presence: {},
+    jira: {
+      status: statusCategory,
+      statusCategory,
+      fixVersions: ['2.0.0'],
+    },
+  });
+
+  it('drops Done tickets with no code anywhere, keeps open ones and anything with code', () => {
+    const kept = dropDoneWithoutCode([
+      jiraOnly('DEV-1', 'done'),
+      jiraOnly('DEV-2', 'new'),
+      {
+        ...jiraOnly('DEV-3', 'done'),
+        presence: { api: { develop: 'merged' } },
+      },
+      gitItem('app-pr-4', 'untracked'),
+    ]);
+    expect(kept.map((i) => i.id)).toEqual(['DEV-2', 'DEV-3', 'app-pr-4']);
   });
 });
 

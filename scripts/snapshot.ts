@@ -10,7 +10,7 @@ import type { Item, RepoId, Snapshot } from '../shared/types/snapshot.ts';
 import { REPOS } from '../shared/utils/snapshot.ts';
 import { addSyncedPresence, mergeItems, readGit } from './lib/git.ts';
 import { applyPrs, readPrs, rekeyByPrTitle, type PrDetails } from './lib/github.ts';
-import { applyJira, readJira } from './lib/jira.ts';
+import { applyJira, dropDoneWithoutCode, readJira } from './lib/jira.ts';
 
 const env = process.env;
 const log = (line: string) => process.stdout.write(`${line}\n`);
@@ -91,6 +91,9 @@ else {
 }
 
 items = addSyncedPresence(items, syncedKeys);
+const before = items.length;
+items = dropDoneWithoutCode(items);
+if (before > items.length) log(`Dropped ${before - items.length} Done tickets with no code in either repo.`);
 
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),

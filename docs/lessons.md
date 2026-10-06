@@ -50,6 +50,8 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **A ticket can ship once and then get another PR.** Its shipped commits sit outside the window, so only the new PR is visible, and the ticket looked as if it had never left develop. Fold synced keys in as `partial` on branches missing the new work. (Phase 5, DEV-1237, spotted by the user)
 - **When the user questions a flag, check it against raw git before answering.** Five of six "Released, not on main" were true, but one exposed a modelling gap. (Phase 5)
 
+- **"Released, not on main" needs a degree.** A hotfix that shipped and then got follow-up commits on develop isn't the same as work that never shipped. Split none vs partial (DEV-1194: #1107 hotfix to main, #1111 follow-ups on develop). (Phase 5, user question)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.

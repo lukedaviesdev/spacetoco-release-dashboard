@@ -69,7 +69,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 - [x] Unit tests: table-driven, one case per verdict and warning rule, including `partial` counting as missing
 
 ## Phase 4: Wells view (+ design direction, critic loop)
-**Status:** In progress (built, PR open for user check)
+**Status:** Done
 **Docs:** Vuetify data-table (grouping, slots), theming; Pinia setup stores; `@vueuse/router` `useRouteQuery`; `design.md`
 
 - Fill in palette / type / well encoding in `design.md` first, then run `/design-system` to produce tokens and map them onto the Vuetify theme.
@@ -85,7 +85,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 - [x] Unit tests: store getters (filtering, grouping order)
 
 ## Phase 5: Transit map header (+ critic loop)
-**Status:** Not started
+**Status:** In progress (built, PR open for user check)
 **Docs:** VueUse `useTimeAgo`; SVG `viewBox`; Vuetify tooltips/chips; `design.md`
 
 - SVG map built from the topology; segment verdict signals; back-sync tracks; click segment to set store hop filter; staleness label; warning chips.
@@ -93,10 +93,10 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 
 **Done when**
 - [ ] From the header alone the user can say whether `staging→main` is mergeable and whether a back-sync is needed
-- [ ] Clicking a segment filters the wells; works by keyboard
-- [ ] Reflows at phone width
-- [ ] Critic ≥9/10 (or plateau noted)
-- [ ] Unit tests: verdict → segment state mapping
+- [x] Clicking a segment filters the wells; works by keyboard
+- [x] Reflows at phone width (vertical map below 700px)
+- [x] Critic ≥9/10 (or plateau noted): 5 → 6 over two rounds, stopped per the Phase 4 plateau
+- [x] Unit tests: verdict → segment state mapping (`utils/transit.test.ts`), plus topology layout
 
 ## Phase 6: Hosting
 **Status:** Not started

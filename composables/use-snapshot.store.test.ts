@@ -130,7 +130,8 @@ describe('groupOf', () => {
   );
 
   it('orders: release, other unreleased, rolling, shipped, no fixVersion, untracked (attention leads all)', () => {
-    const keys = [g(['2.0.0']), g(['3.0.0']), g(['Rolling Hotfixes']), g(['1.0.0']), g([]), g([], 'untracked')].map((x) => x.key);
+    const keys = [g(['2.0.0']), g(['3.0.0']), g(['Rolling Hotfixes']), g(['1.0.0']), g([]), g([], 'untracked')]
+      .map((x) => x.key);
     expect(keys).toEqual([...keys].sort());
     expect([ATTENTION.key, ...keys]).toEqual([ATTENTION.key, ...keys].sort());
     expect(g(['1.0.0', '3.0.0']).label).toBe('3.0.0');

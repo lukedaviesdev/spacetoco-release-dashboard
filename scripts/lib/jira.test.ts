@@ -37,7 +37,7 @@ const gitItem = (id: string, kind: Item['kind'] = 'ticket'): Item => ({
   prs: [],
   presence: { app: { develop: 'merged' } },
   hotfix: false,
-  warnings: kind === 'untracked' ? ['untracked'] : [],
+  warnings: [],
 });
 
 describe('pickSprint', () => {
@@ -162,7 +162,6 @@ describe('applyJira', () => {
 
   it('flags keys Jira does not know', () => {
     expect(byId.get('DEV-404')!.invalidKey).toBe(true);
-    expect(byId.get('DEV-404')!.warnings).toEqual(['invalid-key']);
   });
 
   it('leaves untracked items alone', () => {

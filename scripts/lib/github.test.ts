@@ -26,7 +26,7 @@ const item = (
   prs,
   presence,
   hotfix: false,
-  warnings: kind === 'untracked' ? ['untracked'] : [],
+  warnings: [],
 });
 
 describe('applyPrs', () => {
@@ -65,7 +65,6 @@ describe('rekeyByPrTitle', () => {
     expect(ticket).toMatchObject({
       id: 'DEV-9',
       kind: 'ticket',
-      warnings: [],
     });
   });
 

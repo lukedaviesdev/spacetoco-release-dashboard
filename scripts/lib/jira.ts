@@ -104,7 +104,6 @@ export const applyJira = (items: Item[], result: JiraResult): Item[] => {
       return {
         ...item,
         invalidKey: true,
-        warnings: [...new Set([...item.warnings, 'invalid-key' as const])],
       };
     }
     const issue = result.issues.get(item.id);

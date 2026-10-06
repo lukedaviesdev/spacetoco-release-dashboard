@@ -53,7 +53,6 @@ export function mergeItems(a: Item, b: Item): Item {
     prs: [...a.prs, ...b.prs.filter((pr) => !a.prs.some((p) => p.repo === pr.repo && p.number === pr.number))],
     presence,
     hotfix: a.hotfix || b.hotfix,
-    warnings: [...new Set([...a.warnings, ...b.warnings])],
   };
 }
 
@@ -252,7 +251,8 @@ export function readGit({ path, repo, remote = 'origin/', projects = DEFAULT_PRO
         [repo]: Object.fromEntries(BRANCHES.map((b) => [b, combinePresence(changes.map((c) => presenceOf(c, b)))])),
       },
       hotfix: prs.some(pr => pr.base !== 'develop'),
-      warnings: g.kind === 'untracked' ? ['untracked'] : [],
+      // Set by computeWarnings (shared/utils/verdicts.ts), the single owner of warnings.
+      warnings: [],
     };
   });
 

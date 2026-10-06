@@ -1,13 +1,15 @@
-// Usage: pnpm snapshot --repo ~/Dev/spacetoco-app [--fetch] [--out public/snapshot.json]
+// Usage: pnpm snapshot [--fetch] [--out public/snapshot.json]
+// Reads each repo in REPOS from ~/Dev/<name>, or from <ID>_REPO_PATH (APP_REPO_PATH, API_REPO_PATH).
 // Jira and GitHub enrichment run when their env vars are set (see .env.example); otherwise they're skipped.
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import type { Snapshot } from '../shared/types/snapshot.ts';
-import { BRANCHES } from '../shared/utils/snapshot.ts';
-import { readGit } from './lib/git.ts';
-import { applyPrs, readPrs, rekeyByPrTitle } from './lib/github.ts';
+import type { Item, RepoId, Snapshot } from '../shared/types/snapshot.ts';
+import { REPOS } from '../shared/utils/snapshot.ts';
+import { addSyncedPresence, mergeItems, readGit } from './lib/git.ts';
+import { applyPrs, readPrs, rekeyByPrTitle, type PrDetails } from './lib/github.ts';
 import { applyJira, readJira } from './lib/jira.ts';
 
 const env = process.env;
@@ -15,10 +17,6 @@ const log = (line: string) => process.stdout.write(`${line}\n`);
 
 const { values } = parseArgs({
   options: {
-    repo: {
-      type: 'string',
-      default: env.MONOREPO_PATH,
-    },
     out: {
       type: 'string',
       default: 'public/snapshot.json',
@@ -30,30 +28,42 @@ const { values } = parseArgs({
   },
 });
 
-if (!values.repo) {
-  console.error('Pass --repo <path to spacetoco-app> or set MONOREPO_PATH.');
-  process.exit(1);
+const projects = (env.JIRA_PROJECTS || 'DEV,BUG').split(',').map((p) => p.trim());
+const pathOf = (repo: typeof REPOS[number]) => (env[`${repo.id.toUpperCase()}_REPO_PATH`] || join('~/Dev', repo.name))
+  .replace(/^~(?=\/|$)/, homedir());
+
+const heads: Snapshot['heads'] = {};
+const syncedKeys: Partial<Record<RepoId, string[]>> = {};
+const byId = new Map<string, Item>();
+
+for (const repo of REPOS) {
+  const path = pathOf(repo);
+  if (values.fetch) execFileSync('git', ['-C', path, 'fetch', '--quiet', 'origin', ...repo.branches], { stdio: 'inherit' });
+  const git = readGit({
+    path,
+    repo: repo.id,
+    projects,
+  });
+  heads[repo.id] = git.heads;
+  syncedKeys[repo.id] = git.syncedKeys;
+  for (const item of git.items) byId.set(item.id, byId.has(item.id) ? mergeItems(byId.get(item.id)!, item) : item);
+  log(`git ${repo.name}: ${git.items.length} items not on every branch.`);
 }
-const repo = values.repo.replace(/^~(?=\/|$)/, homedir());
-const projects = (env.JIRA_PROJECTS ?? 'DEV,BUG').split(',').map((p) => p.trim());
-
-if (values.fetch) execFileSync('git', ['-C', repo, 'fetch', '--quiet', 'origin', ...BRANCHES], { stdio: 'inherit' });
-
-const { heads, items: gitItems, syncedKeys } = readGit({
-  repo,
-  projects,
-});
-let items = gitItems;
+let items = [...byId.values()];
 let releases: Snapshot['releases'] = [];
 let currentRelease: Snapshot['currentRelease'] = null;
 
 if (env.GITHUB_TOKEN) {
-  const numbers = [...new Set(items.flatMap((i) => i.prs.map((pr) => pr.number)))];
-  const details = await readPrs({
-    token: env.GITHUB_TOKEN,
-    repo: env.GITHUB_REPO || 'spacetoco/spacetoco-app',
-    cachePath: '.cache/github-prs.json',
-  }, numbers);
+  const details = new Map<string, PrDetails>();
+  for (const repo of REPOS) {
+    const numbers = [...new Set(items.flatMap((i) => i.prs.filter((pr) => pr.repo === repo.id).map((pr) => pr.number)))];
+    const found = await readPrs({
+      token: env.GITHUB_TOKEN,
+      github: repo.github,
+      cachePath: `.cache/github-prs-${repo.id}.json`,
+    }, repo.id, numbers);
+    for (const [key, d] of found) details.set(key, d);
+  }
   // Before Jira, so tickets found via PR titles get their Jira data too.
   items = rekeyByPrTitle(applyPrs(items, details), projects);
   log(`GitHub: details for ${details.size} PRs.`);
@@ -70,7 +80,7 @@ if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
     projects,
     cloudId: env.JIRA_CLOUD_ID || undefined,
   }, items.filter((i) => i.kind === 'ticket').map((i) => i.id));
-  items = applyJira(items, jira, syncedKeys);
+  items = applyJira(items, jira);
   ({ releases, currentRelease } = jira);
   const unknown = jira.missingKeys.length ? ` (${jira.missingKeys.join(', ')})` : '';
   log(`Jira: ${jira.issues.size} issues, ${releases.length} versions, current release ${currentRelease ?? 'none'}, `
@@ -79,6 +89,8 @@ if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
 else {
   log('Jira: skipped (set JIRA_EMAIL and JIRA_API_TOKEN).');
 }
+
+items = addSyncedPresence(items, syncedKeys);
 
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),

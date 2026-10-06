@@ -35,14 +35,7 @@ const gitItem = (id: string, kind: Item['kind'] = 'ticket'): Item => ({
   kind,
   title: 'from git',
   prs: [],
-  presence: {
-    'develop': 'merged',
-    'staging': 'none',
-    'main': 'none',
-    'demo': 'none',
-    'main-uk': 'none',
-    'demo-uk': 'none',
-  },
+  presence: { app: { develop: 'merged' } },
   hotfix: false,
   warnings: kind === 'untracked' ? ['untracked'] : [],
 });
@@ -176,14 +169,9 @@ describe('applyJira', () => {
     expect(byId.get('pr-7')!.jira).toBeUndefined();
   });
 
-  it('marks release tickets already on every branch as merged everywhere', () => {
-    const synced = applyJira([], result, ['DEV-9']).find((i) => i.id === 'DEV-9');
-    expect(Object.values(synced!.presence).every((p) => p === 'merged')).toBe(true);
-  });
-
   it('adds release tickets that are on no branch yet', () => {
     const added = byId.get('DEV-9')!;
-    expect(Object.values(added.presence).every((p) => p === 'none')).toBe(true);
+    expect(added.presence).toEqual({});
     expect(added.prs).toEqual([]);
   });
 });

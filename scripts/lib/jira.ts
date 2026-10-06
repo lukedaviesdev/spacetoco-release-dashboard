@@ -1,5 +1,5 @@
-import type { Branch, Item, JiraInfo, Presence, Release } from '../../shared/types/snapshot.ts';
-import { BRANCHES, STATUS_CATEGORIES } from '../../shared/utils/snapshot.ts';
+import type { Item, JiraInfo, Release } from '../../shared/types/snapshot.ts';
+import { STATUS_CATEGORIES } from '../../shared/utils/snapshot.ts';
 
 export interface JiraConfig {
   /** e.g. 'spacetoco.atlassian.net' */
@@ -94,9 +94,9 @@ export const currentReleaseOf = (releases: Release[]): string | null => releases
 
 /**
  * Fill in Jira data on items, flag keys Jira doesn't know, and add release tickets that aren't in the git window:
- * already on every branch if their key is in `syncedKeys`, otherwise on none yet.
+ * with empty presence (`addSyncedPresence` then fills in repos where they're already released).
  */
-export const applyJira = (items: Item[], result: JiraResult, syncedKeys: string[] = []): Item[] => {
+export const applyJira = (items: Item[], result: JiraResult): Item[] => {
   const missing = new Set(result.missingKeys);
   const enriched = items.map((item): Item => {
     if (item.kind !== 'ticket') return item;
@@ -116,8 +116,6 @@ export const applyJira = (items: Item[], result: JiraResult, syncedKeys: string[
   });
 
   const seen = new Set(items.map((i) => i.id));
-  const synced = new Set(syncedKeys);
-  const everywhere = (presence: Presence) => Object.fromEntries(BRANCHES.map((b) => [b, presence])) as Record<Branch, Presence>;
   for (const [key, issue] of result.issues) {
     if (seen.has(key)) continue;
     enriched.push({
@@ -126,7 +124,7 @@ export const applyJira = (items: Item[], result: JiraResult, syncedKeys: string[
       title: issue.summary,
       jira: issue.jira,
       prs: [],
-      presence: everywhere(synced.has(key) ? 'merged' : 'none'),
+      presence: {},
       hotfix: false,
       warnings: [],
     });
@@ -137,10 +135,16 @@ export const applyJira = (items: Item[], result: JiraResult, syncedKeys: string[
 // ---------- API ----------
 
 const FIELDS = ['summary', 'status', 'fixVersions', 'assignee'];
+/** Read-only by design: the only POSTs allowed are Jira's read endpoints that take a body. */
+const READ_ONLY_POSTS = ['/issue/bulkfetch', '/search/jql'];
 const BULK_LIMIT = 100;
 
 export const readJira = async (config: JiraConfig, keys: string[], fetchImpl: typeof fetch = fetch): Promise<JiraResult> => {
   const request = async <T>(url: string, init?: RequestInit): Promise<T> => {
+    const method = init?.method ?? 'GET';
+    if (method !== 'GET' && !(method === 'POST' && READ_ONLY_POSTS.some((p) => url.endsWith(p)))) {
+      throw new Error(`Refusing Jira ${method} ${new URL(url).pathname}: this tool never writes to Jira.`);
+    }
     const res = await fetchImpl(url, {
       ...init,
       headers: {
@@ -149,7 +153,7 @@ export const readJira = async (config: JiraConfig, keys: string[], fetchImpl: ty
         Authorization: `Basic ${Buffer.from(`${config.email}:${config.token}`).toString('base64')}`,
       },
     });
-    if (!res.ok) throw new Error(`Jira ${init?.method ?? 'GET'} ${new URL(url).pathname} failed: ${res.status} ${await res.text()}`);
+    if (!res.ok) throw new Error(`Jira ${method} ${new URL(url).pathname} failed: ${res.status} ${await res.text()}`);
     return res.json() as Promise<T>;
   };
 

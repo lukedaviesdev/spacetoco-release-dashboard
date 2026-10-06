@@ -39,7 +39,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
 - [x] Unit tests: a temp git repo is built in the test with a feature merge, a cherry-picked hotfix, a conflict-resolved pick, an untracked PR and a partial ticket, and presence is asserted for each
 
 ## Phase 2: Jira + GitHub enrichment (+ spacetoco-api)
-**Status:** In progress
+**Status:** In progress (built, PR open for user check)
 **Docs:** Jira REST v3 issue search (`/search/jql`), project versions, scoped API tokens; GitHub REST pulls
 
 - Fetch versions + issues in one JQL; map status category, fixVersions, sprint, assignee; resolve current release; flag invalid keys.
@@ -50,11 +50,12 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1�
   - **Released tickets:** `syncedKeys` marks tickets already on every branch, so released tickets aren't shown as missing.
   - **PR-title keys:** untracked PRs are re-keyed from their PR titles.
   - **Read-only guard** in the Jira client.
+  - **Done tickets with no code in either repo are dropped** (legacy noise: 27.3.0 went from 67 to 9 tickets).
 
 **Done when**
 - [ ] 5 tickets spot-checked against Jira: fixVersion, status, sprint, assignee match
-- [ ] Current release = earliest unreleased version
-- [ ] Unit tests: recorded Jira/GitHub responses → mapped items; missing key → `invalidKey`
+- [x] Current release = earliest unreleased version (`27.3.0 (Casual Bookings)`)
+- [x] Unit tests: recorded Jira/GitHub responses → mapped items; missing key → `invalidKey`
 
 ## Phase 3: Verdict engine
 **Status:** Not started

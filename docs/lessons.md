@@ -32,6 +32,9 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Ask what else ships under the same Jira keys before trusting "not merged" signals.** DEV tickets also land in `spacetoco-api`; without that repo they'd all read as missing. (Phase 2, user correction)
 - **External API facts come from current docs, not memory.** Scoped Atlassian tokens only work via `api.atlassian.com/ex/jira/{cloudId}`, and `bulkfetch` silently drops unknown keys. Both were found by reading the docs first. (Phase 2)
 
+- **Done tickets with no code anywhere are noise, not missing work.** Drop them; only warn about release tickets that aren't Done yet. The user doesn't track legacy tickets.
+  **Why:** 27.3.0 carried ~60 legacy Casual Bookings tickets with no commits under their keys. (Phase 2, user decision)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.

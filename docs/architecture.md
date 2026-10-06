@@ -97,7 +97,7 @@ PRs whose head ref *is* an env branch (`Merge pull request #1165 from spacetoco/
 - **Current release** = earliest unreleased fixVersion (by `releaseDate`, then name). Selectable in the UI. Versions are marked released in Jira when they ship.
 - **Done** = status category `done`, not status names.
 - Items are **grouped by fixVersion**; sprint is shown as a chip on each row for readability, and is a filter.
-- Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells). This covers "future sprints".
+- Tickets in unreleased fixVersions that aren't on any branch yet still appear (rows of empty wells) **unless they're Done**. A Done ticket with no work in either repo is a legacy ticket or work committed under other keys, and is dropped (`dropDoneWithoutCode`). This covers "future sprints" without flooding a release with old tickets.
 
 ## Verdict rules
 

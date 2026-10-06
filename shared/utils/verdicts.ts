@@ -29,6 +29,12 @@ const RANK: Record<Presence, number> = {
 
 const rankOn = (item: Item, repo: RepoId, branch: Branch) => RANK[item.presence[repo]?.[branch] ?? 'none'];
 
+/**
+ * The status the team sets once work is merged to main. Matched by name because Done and Released share Jira's `done`
+ * category. Ignores numbering and case: 'RELEASED', '(9) Released'; not 'READY TO RELEASE'.
+ */
+const RELEASED_STATUS = /\breleased\b/i;
+
 const inRelease = (item: Item, release: string | null) => !!item.jira?.fixVersions
   .some((v) => v === release || ROLLING_VERSIONS.includes(v));
 
@@ -74,6 +80,10 @@ export const computeWarnings = (item: Item, release: string | null, releases: Re
   if (release && item.jira?.fixVersions.includes(release) && !fullyOn(item, 'develop')) warnings.push('not-on-develop');
   // Every version it's in has shipped, yet it isn't on main: it missed its release, or its fixVersion is stale.
   if (versions.length && versions.every((v) => shipped.has(v)) && !fullyOn(item, 'main')) warnings.push('missed-release');
+  // Jira's lifecycle (In testing on staging → Done → Released on main) disagrees with where the code is.
+  if (item.jira && Object.keys(item.presence).length && RELEASED_STATUS.test(item.jira.status) !== fullyOn(item, 'main')) {
+    warnings.push('status-mismatch');
+  }
   // On staging ahead of main but not part of the release: it must not go to main, whatever its status.
   const aheadOnStaging = (Object.keys(item.presence) as RepoId[])
     .some((r) => rankOn(item, r, 'staging') > rankOn(item, r, 'main'));

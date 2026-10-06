@@ -157,7 +157,7 @@ describe('computeWarnings', () => {
   it.each([
     ['in the release and on develop', item('A', 'm.....'), []],
     ['in the release, not merged anywhere', item('A', ''), ['not-on-develop']],
-    ['in the release, only on main (hotfix)', item('A', '..m...'), ['not-on-develop']],
+    ['in the release, only on main (hotfix)', item('A', '..m...', { jira: { status: 'RELEASED' } }), ['not-on-develop']],
     ['in the release, partial on develop', item('A', 'h.....'), ['not-on-develop']],
     ['another release, not merged anywhere', item('A', '', { jira: { fixVersions: ['3.0.0'] } }), []],
     ['Done with no fixVersion', item('A', 'm.....', { jira: { fixVersions: [] } }), ['done-no-fixversion']],
@@ -194,10 +194,40 @@ describe('computeWarnings', () => {
       }), ['extra-on-staging', 'untracked']],
       ['in the release but still testing', item('A', 'mm....', { jira: { statusCategory: 'indeterminate' } }), []],
       ['rolling hotfix on staging', item('A', 'mm....', { jira: { fixVersions: ['Rolling Hotfixes'] } }), []],
-      ['another release, but already on main too', item('A', 'mmm...', { jira: { fixVersions: ['3.0.0'] } }), []],
+      ['another release, but already on main too', item('A', 'mmm...', {
+        jira: {
+          fixVersions: ['3.0.0'],
+          status: 'RELEASED',
+        },
+      }), []],
       ['another release, only on develop', item('A', 'm.....', { jira: { fixVersions: ['3.0.0'] } }), []],
     ] as const)('%s', (_, i, warnings) => {
       expect(computeWarnings(i, R)).toEqual(warnings);
+    });
+  });
+
+  describe('status-mismatch', () => {
+    const status = (app: string, name: string) => computeWarnings(item('A', app, {
+      jira: {
+        status: name,
+        fixVersions: ['1.0.0'],
+      },
+    }), R);
+
+    it('flags Released work that is not fully on main', () => {
+      expect(status('m.....', 'RELEASED')).toEqual(['status-mismatch']);
+      expect(status('mmh...', '(9) Released')).toEqual(['extra-on-staging', 'status-mismatch']);
+    });
+
+    it('flags work fully on main whose status is not Released', () => {
+      expect(status('mmm...', '(7) Done')).toEqual(['status-mismatch']);
+      expect(status('mmm...', '(8) READY TO RELEASE')).toEqual(['status-mismatch']);
+    });
+
+    it('is quiet when status and branches agree, or there is no code yet', () => {
+      expect(status('mmm...', 'RELEASED')).toEqual([]);
+      expect(status('mm....', '(6) In testing')).toEqual(['extra-on-staging']);
+      expect(status('', 'RELEASED')).toEqual([]);
     });
   });
 
@@ -220,7 +250,7 @@ describe('computeWarnings', () => {
     });
 
     it('stays quiet once it is on main, when it was carried into an unreleased version, or for rolling versions', () => {
-      expect(warn('mmm...', ['1.0.0'])).toEqual([]);
+      expect(warn('mmm...', ['1.0.0'])).not.toContain('missed-release');
       expect(warn('m.....', ['1.0.0', R])).toEqual([]);
       expect(warn('m.....', ['Rolling Hotfixes'])).toEqual([]);
     });

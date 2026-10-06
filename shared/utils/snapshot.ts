@@ -43,6 +43,7 @@ export const WARNINGS = [
   'extra-on-staging',
   'not-on-develop',
   'missed-release',
+  'status-mismatch',
   'done-no-fixversion',
   'invalid-key',
   'untracked',

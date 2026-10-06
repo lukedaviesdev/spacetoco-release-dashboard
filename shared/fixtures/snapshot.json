@@ -280,7 +280,9 @@
         }
       },
       "hotfix": true,
-      "warnings": []
+      "warnings": [
+        "status-mismatch"
+      ]
     },
     {
       "id": "app-pr-1066",
@@ -317,7 +319,7 @@
       "kind": "ticket",
       "title": "Calendar overlap on recurring bookings",
       "jira": {
-        "status": "Done",
+        "status": "RELEASED",
         "statusCategory": "done",
         "fixVersions": [
           "27.2.2"
@@ -348,7 +350,8 @@
       },
       "hotfix": false,
       "warnings": [
-        "missed-release"
+        "missed-release",
+        "status-mismatch"
       ]
     },
     {

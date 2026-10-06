@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { Snapshot } from '../../shared/types/snapshot'
 import { BRANCHES, HOPS, PRESENCES, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../../shared/utils/snapshot'
 
-const snapshot: Snapshot = JSON.parse(readFileSync(new URL('../../public/snapshot.json', import.meta.url), 'utf8'))
+const snapshot: Snapshot = JSON.parse(readFileSync(new URL('../fixtures/snapshot.json', import.meta.url), 'utf8'))
 const ids = new Set(snapshot.items.map(i => i.id))
 
 describe('fixture snapshot.json', () => {

@@ -14,7 +14,9 @@
     "postinstall": "nuxt prepare",
     "test": "vitest run",
     "typecheck": "nuxt typecheck",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "snapshot": "node --env-file-if-exists=.env scripts/snapshot.ts",
+    "fixture": "cp test/fixtures/snapshot.json public/snapshot.json"
   },
   "dependencies": {
     "@pinia/nuxt": "^1.0.2",

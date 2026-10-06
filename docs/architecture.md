@@ -127,6 +127,7 @@ Implemented in `shared/utils/verdicts.ts` (`computeHops`, `computeWarnings`, `ju
 | `extra-on-staging` | on staging ahead of main but not in the selected release (or a rolling version), whatever its status. It must not go to main. Unlike staging→main's `blockingIds`, this excludes release work that's only still being tested. |
 | `not-on-develop` | in the selected release, but not fully on develop in every repo it has work in (or no work anywhere yet) |
 | `missed-release` | every non-rolling fixVersion has shipped, but the work isn't fully on main. Either the fixVersion is stale or the work missed its release. It still blocks, so nothing goes out without being re-approved. |
+| `status-mismatch` | Jira's lifecycle disagrees with the code: status is Released (matched by name, `/\breleased\b/i`, because Done and Released share the `done` category) but the work isn't fully on main, **or** it's fully on main but not Released |
 | `done-no-fixversion` | Done with no fixVersion |
 | `invalid-key` | key not found in Jira |
 | `untracked` | no ticket key |

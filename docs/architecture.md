@@ -145,7 +145,7 @@ interface Hop {
 
 ## Stack
 
-Matches the monorepo's versions: pnpm 10, Node 24, Nuxt 4, Vue 3, Vuetify 3 via `vuetify-nuxt-module`, Pinia via `@pinia/nuxt`, VueUse (+ `@vueuse/router`), Vitest + `@nuxt/test-utils`. Deploy: `cloudflare/wrangler-action@v4` with `pages deploy`, same pattern as the monorepo's `ci.yaml`.
+Matches the monorepo's versions: pnpm 10, Node 24, Nuxt 4, Vue 3, Vuetify 4 via `vuetify-nuxt-module`, Pinia via `@pinia/nuxt`, VueUse (+ `@vueuse/router`), Vitest + `@nuxt/test-utils`, TypeScript 6 (pinned: `vue-tsc` does not support TS 7 yet). Rendering: `ssr: false` static SPA, so the app shell never embeds snapshot data and a new snapshot needs no app rebuild. Deploy: `cloudflare/wrangler-action@v4` with `pages deploy`, same pattern as the monorepo's `ci.yaml`.
 
 Use the packages before writing anything custom: Vuetify components for every table, chip, badge, filter and tooltip; VueUse for time-ago, URL sync and similar; native git commands for anything a git command can answer.
 

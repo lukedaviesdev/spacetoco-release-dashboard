@@ -9,8 +9,8 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 ---
 
 ## Phase 0: Scaffold + contract
-**Status:** Not started
-**Docs:** Nuxt 4, Vuetify 3, vuetify-nuxt-module, Pinia (+ Nuxt), VueUse, Vitest, Nuxt testing
+**Status:** In progress (built, awaiting user check)
+**Docs:** Nuxt 4, Vuetify 4, vuetify-nuxt-module, Pinia (+ Nuxt), VueUse, Vitest, Nuxt testing
 
 - Nuxt 4 app with pnpm 10 / Node 24, `vuetify-nuxt-module`, `@pinia/nuxt`, `@vueuse/nuxt`, `@vueuse/router`, Vitest + `@nuxt/test-utils`, ESLint (`@nuxt/eslint`).
 - `shared/types/snapshot.ts` with the contract from `architecture.md`.
@@ -19,8 +19,10 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 - `.env.example` (`JIRA_EMAIL`, `JIRA_API_TOKEN`, `GITHUB_TOKEN`, `MONOREPO_PATH`), `.gitignore`.
 
 **Done when**
-- [ ] `pnpm dev` shows a Vuetify page listing the fixture's items
-- [ ] `pnpm test` and `pnpm typecheck` pass (fixture conforms to the types)
+- [x] `pnpm dev` shows a Vuetify page listing the fixture's items
+- [x] `pnpm test` and `pnpm typecheck` pass (fixture conforms to the types)
+
+**Notes:** the fixture test (`test/unit/fixture.test.ts`) also asserts the fixture covers every presence, verdict and warning, so the UI phases can't miss a state. Reuse its checks against real script output in Phase 1.
 
 ## Phase 1: Git engine
 **Status:** Not started
@@ -62,7 +64,7 @@ The Phase 0 fixture `snapshot.json` is the contract between the data phases (1â€
 **Status:** Not started
 **Docs:** Vuetify data-table (grouping, slots), theming; Pinia setup stores; `@vueuse/router` `useRouteQuery`; `design.md`
 
-- Fill in palette / type / well encoding in `design.md` first.
+- Fill in palette / type / well encoding in `design.md` first, then run `/design-system` to produce tokens and map them onto the Vuetify theme.
 - `v-data-table` grouped by fixVersion, wells column, sprint chip, status, assignee, PR links, warning badges.
 - Store: filters as `useRouteQuery` refs; getters for filtered/grouped items.
 - Critic rounds + AI-tell sweep + craft floor from `design.md`.

@@ -37,6 +37,7 @@ The branch topology already *is* a rail network: a trunk `develop → staging �
 
 Following `/design-with-ai`:
 1. Derive palette, type pairing and the transit visual language once, at the start of Phase 4, and write them below before building. Constraints filter that decision; they don't replace it.
+   Then run `/design-system` to turn those choices into tokens (primitive → semantic → component), and map them onto the Vuetify theme (`colors`, `variables`) and component `defaults`. Semantic tokens needed: presence (`merged`/`picked`/`partial`/`none`), readiness (ready / not ready / not in release / hotfix), verdicts (clean / cherry-pick / sync / back-sync), staleness.
 2. Build against the real snapshot, not just the fixture.
 3. Screenshot it yourself after every substantive change.
 4. **Critic loop:** a fresh critic subagent each round gets only a screenshot path and the same fixed prompt (name the aesthetic → how a top studio would do it → concrete gaps → score /10). Loop until it scores ≥9 or the score stops climbing after two rounds. Don't tell the critic the bar.

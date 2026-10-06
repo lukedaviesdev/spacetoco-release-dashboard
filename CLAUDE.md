@@ -24,8 +24,8 @@ Read-only release dashboard for the `spacetoco/spacetoco-app` monorepo (local cl
 |---|---|
 | Vue 3 | https://vuejs.org/llms.txt |
 | Nuxt 4 | https://nuxt.com/llms.txt · testing: https://nuxt.com/docs/4.x/getting-started/testing |
-| Vuetify 3 | https://vuetifyjs.com/llms.txt |
-| vuetify-nuxt-module | https://vuetify-nuxt-module.netlify.app/ |
+| Vuetify 4 | https://vuetifyjs.com/llms.txt |
+| vuetify-nuxt-module | https://nuxt.vuetifyjs.com/ |
 | Pinia | https://pinia.vuejs.org/core-concepts/ · Nuxt: https://pinia.vuejs.org/ssr/nuxt.html |
 | VueUse | https://vueuse.org/llms.txt (`useRouteQuery` is in `@vueuse/router`) |
 | Vitest | https://vitest.dev/llms.txt |

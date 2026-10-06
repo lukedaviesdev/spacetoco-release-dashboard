@@ -13,10 +13,13 @@ export default defineNuxtConfig({
     '@vueuse/nuxt',
     '@nuxt/eslint',
     '@nuxt/test-utils/module',
+    '@nuxt/fonts',
   ],
+  css: ['~/assets/css/tokens.css'],
   vuetify: {
     // Nuxt has its own useLayout; Vuetify's becomes useVLayout.
     moduleOptions: { prefixComposables: ['useLayout'] },
+    vuetifyOptions: './vuetify.config.ts',
   },
   typescript: {
     // Node-side code outside Nuxt's default type contexts.

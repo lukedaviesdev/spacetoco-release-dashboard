@@ -433,14 +433,14 @@
       "verdict": "cherry-pick",
       "aheadIds": [
         "DEV-1314",
-        "DEV-973",
         "DEV-1113",
+        "DEV-973",
         "DEV-1325",
         "DEV-11940"
       ],
       "blockingIds": [
-        "DEV-973",
         "DEV-1113",
+        "DEV-973",
         "DEV-1325",
         "DEV-11940"
       ],
@@ -452,8 +452,10 @@
       "repo": "app",
       "from": "main",
       "to": "demo",
-      "verdict": "in-sync",
-      "aheadIds": [],
+      "verdict": "sync",
+      "aheadIds": [
+        "DEV-11940"
+      ],
       "blockingIds": [],
       "backSyncIds": []
     },
@@ -463,7 +465,8 @@
       "to": "main-uk",
       "verdict": "sync",
       "aheadIds": [
-        "app-pr-1066"
+        "app-pr-1066",
+        "DEV-11940"
       ],
       "blockingIds": [],
       "backSyncIds": []

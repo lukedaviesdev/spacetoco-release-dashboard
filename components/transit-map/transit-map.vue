@@ -148,14 +148,21 @@ const headOf = (repo: string, branch: string) => store.snapshot?.heads[repo as k
       >
         <path :d="t.d" class="track__hit" />
         <path :d="t.d" class="track__line" />
+        <!-- Two-part labels ('11 not ready · 12 to bring up') stack on two short lines so they fit between stations. -->
         <text
           v-if="t.signal?.label"
           :x="t.label.x"
-          :y="t.label.y"
+          :y="t.label.y - (t.signal.label.includes(' · ') ? 15 : 0)"
           :text-anchor="t.label.anchor"
           class="track__label"
         >
-          {{ t.signal.label }}
+          <tspan
+            v-for="(part, i) in t.signal.label.split(' · ')"
+            :key="part"
+            :class="{ 'track__label--second': i > 0 }"
+            :dy="i ? 15 : 0"
+            :x="t.label.x"
+          >{{ part }}</tspan>
         </text>
       </g>
 
@@ -253,6 +260,8 @@ const headOf = (repo: string, branch: string) => store.snapshot?.heads[repo as k
   fill: var(--track-colour);
   font-variant-numeric: tabular-nums;
 }
+
+.track__label--second { font-weight: 400; fill: var(--ink); }
 
 .track:hover .track__line,
 .track:focus-visible .track__line { stroke-width: 9; }

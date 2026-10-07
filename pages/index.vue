@@ -156,7 +156,7 @@ const shippedNotice = computed(() => {
   const shipped = store.snapshot?.shippedUnmarked ?? [];
   if (!shipped.length) return '';
   const one = shipped.length === 1;
-  return `${shipped.join(', ')} ${one ? 'looks' : 'look'} shipped: every ticket with code is on main, but Jira hasn't marked `
+  return `${shipped.join(', ')} ${one ? 'looks' : 'look'} shipped: most of its tickets are on main, but Jira hasn't marked `
     + `${one ? 'it' : 'them'} released. Showing ${store.snapshot?.currentRelease ?? 'no release'} as the current release.`;
 });
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;

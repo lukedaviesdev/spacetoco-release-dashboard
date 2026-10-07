@@ -179,6 +179,12 @@ describe('computeWarnings', () => {
         jira: null,
         kind: 'untracked',
       }), ['extra-on-staging', 'untracked']],
+      ['not tested on dev but already partly on main', item('A', 'mmh...', {
+        jira: {
+          fixVersions: ['3.0.0'],
+          statusCategory: 'indeterminate',
+        },
+      }), ['extra-on-staging', 'not-tested', 'follow-up']],
       ['in the release but not tested on dev', item('A', 'mm....', {
         jira: { statusCategory: 'indeterminate' },
       }), ['not-tested']],

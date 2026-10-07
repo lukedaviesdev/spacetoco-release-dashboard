@@ -427,6 +427,7 @@
       "hotfix": true,
       "warnings": [
         "extra-on-staging",
+        "not-tested",
         "follow-up",
         "convention",
         "invalid-key"

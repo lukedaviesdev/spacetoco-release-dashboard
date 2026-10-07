@@ -80,7 +80,10 @@ export const computeWarnings = (item: Item, release: string | null, releases: Re
     const releaseWork = item.kind !== 'dependency' && aheadOnStaging && !!release;
     // On staging ahead of main: outside the release must not go to main; inside it but not Done skipped QA on dev.
     add('extra-on-staging', releaseWork && !inRelease(item, release));
-    add('not-tested', releaseWork && inRelease(item, release) && item.jira?.statusCategory !== 'done');
+    // Release work on staging, or any ticket work on main, that hasn't passed QA on develop.
+    const onMain = repos.some((r) => rankOn(item, r, 'main') > 0);
+    const untested = item.kind === 'ticket' && item.jira?.statusCategory !== 'done';
+    add('not-tested', untested && ((releaseWork && inRelease(item, release)) || onMain));
     add('not-on-develop', release && item.jira?.fixVersions.includes(release) && !fullyOn(item, 'develop'));
     // Every version it's in has shipped, yet it isn't on main: it missed its release, or its fixVersion is stale.
     add('missed-release', versions.length && versions.every((v) => shipped.has(v)) && !fullyOn(item, 'main'));

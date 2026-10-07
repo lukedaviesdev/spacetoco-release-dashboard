@@ -93,7 +93,9 @@ Decided 2026-10-06 after a GitHub × git × Jira audit and a grilling session (a
 | Paths | `exempt` | Meaning |
 |---|---|---|
 | `deployments/**` | `released-on-develop` | infra applies from develop (`*-apply.yml`) |
-| `packages/testing/**`, `.github/**` | `never-ships` | tooling |
+| `packages/testing/**`, `.github/**`, `.cursor/**` | `never-ships` | tooling |
+
+Root `package.json` and `pnpm-lock.yaml` are **neutral**: they change alongside any work, so they don't stop a ticket being exempt (DEV-874's Terraform PR also touched `package.json`).
 | `packages/backend/**` | `not-live` | the new monorepo backend, not deployed yet |
 
 If a ticket's files span several of these groups: `released-on-develop` wins, then `not-live`, then `never-ships`.

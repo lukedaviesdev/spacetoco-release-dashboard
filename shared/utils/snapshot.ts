@@ -18,6 +18,10 @@ export const EXEMPT_PATHS = [
     prefix: '.github/',
     exempt: 'never-ships',
   },
+  {
+    prefix: '.cursor/',
+    exempt: 'never-ships',
+  },
 ] as const;
 /** When a ticket's files span several exempt groups, the first in this list wins. */
 export const EXEMPT_ORDER = ['released-on-develop', 'not-live', 'never-ships'] as const;

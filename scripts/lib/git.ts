@@ -121,6 +121,9 @@ export function conventionIssues(
   return issues;
 }
 
+/** Root manifests and lockfiles change alongside any work, so they don't decide whether it rides the release path. */
+const NEUTRAL_FILES = new Set(['package.json', 'pnpm-lock.yaml']);
+
 /** Which exempt group a file belongs to, if any. */
 const exemptOf = (file: string, exemptPaths: readonly { prefix: string, exempt: Exempt }[]) => exemptPaths
   .find((e) => file.startsWith(e.prefix))?.exempt;
@@ -334,7 +337,7 @@ export function buildItems(scan: RepoScan, details: Map<number, PrDetail>, proje
       return [b, followUpMissing ? 'partial' : 'merged'];
     })) as RepoPresence;
 
-    const files = own.flatMap((c) => c.pr.files);
+    const files = own.flatMap((c) => c.pr.files).filter((f) => !NEUTRAL_FILES.has(f));
     const groups = files.map((f) => exemptOf(f, repoDef.exemptPaths));
     const exempt = own.length && files.length && groups.every(Boolean)
       ? EXEMPT_ORDER.find((e) => groups.includes(e))

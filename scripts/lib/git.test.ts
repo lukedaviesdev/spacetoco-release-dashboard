@@ -253,7 +253,10 @@ describe('PR engine on a scripted repo', () => {
     pr(15, 'DEV-7-a', 'develop', day(8, 11), () => commit('g.txt', 'tweak'));
 
     // DEV-9 only touches infra: off the release path.
-    pr(16, 'DEV-9-infra', 'develop', day(8, 12), () => commit('deployments/main.tf', '[DEV-9] infra'));
+    pr(16, 'DEV-9-infra', 'develop', day(8, 12), () => {
+      commit('deployments/main.tf', '[DEV-9] infra');
+      commit('package.json', '[DEV-9] add terraform script'); // root manifests don't decide
+    });
 
     // Untracked hotfix into main, a dependabot bump, and a conflict-fix PR.
     pr(17, 'seo-hotfix', 'main', day(8, 13), () => commit('seo.txt', 'add price to seo'));

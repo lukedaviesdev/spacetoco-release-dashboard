@@ -1,21 +1,23 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Item } from '../../shared/types/snapshot';
-import { addSyncedPresence, combinePresence, extractKey, mergeItems, mergePresence, parsePrMerge, readGit, titleFromRef } from './git';
+import {
+  addSyncedPresence, buildItems, conventionIssues, extractKey, extractKeys, mergeItems, mergePresence, parsePrMerge, prKind,
+  scanRepo, titleFromRef, type PrDetail, type RepoScan,
+} from './git';
 
 describe('pure helpers', () => {
-  it('extracts ticket keys from branch names and subjects', () => {
+  it('extracts ticket keys from branch names, titles and subjects', () => {
     expect(extractKey('DEV-1314-Cannot-book')).toBe('DEV-1314');
     expect(extractKey('cursor/dev-1113-tasks-56f6')).toBe('DEV-1113');
-    expect(extractKey('[BUG-554] 🐛 fix')).toBe('BUG-554');
     expect(extractKey('DEV-11940bugfix-submit')).toBe('DEV-11940');
     expect(extractKey('EC-2398')).toBeUndefined();
-    expect(extractKey('seo-hotfix')).toBeUndefined();
     expect(extractKey('MYDEV-12')).toBeUndefined();
+    expect(extractKeys('[DEV-180][DEV-181] and DEV-185')).toEqual(['DEV-180', 'DEV-181', 'DEV-185']);
   });
 
   it('parses PR merge subjects', () => {
@@ -23,40 +25,135 @@ describe('pure helpers', () => {
       number: 1162,
       headRef: 'DEV-1314-x',
     });
-    expect(parsePrMerge('Merge pull request #12 from spacetoco/sync/main-into-develop')).toEqual({
-      number: 12,
-      headRef: 'sync/main-into-develop',
-    });
     expect(parsePrMerge('Merge branch \'develop\' into DEV-1113')).toBeUndefined();
   });
 
-  it('combines per-commit presence', () => {
-    expect(combinePresence(['merged', 'merged'])).toBe('merged');
-    expect(combinePresence(['merged', 'picked'])).toBe('picked');
-    expect(combinePresence(['merged', 'missing'])).toBe('partial');
-    expect(combinePresence(['missing'])).toBe('none');
+  it('classifies PRs by head branch', () => {
+    const env = ['develop', 'staging', 'main'];
+    expect(prKind('staging', env, false)).toBe('env');
+    expect(prKind('release/27.3.0', env, false)).toBe('carrier');
+    expect(prKind('mini-release', env, false)).toBe('carrier');
+    expect(prKind('sync/main-into-develop', env, false)).toBe('carrier');
+    expect(prKind('chore/cherry-pick-27.1.0-hotfixes-to-develop', env, false)).toBe('carrier');
+    expect(prKind('staging-main-conflicts', env, false)).toBe('conflict');
+    expect(prKind('revert-1050-DEV-1115-fix', env, true)).toBe('revert-chore');
+    expect(prKind('chore/pull-non-release-tickets-27.1.0', env, false)).toBe('revert-chore');
+    expect(prKind('dependabot/npm_and_yarn/axios-1.20.0', env, false)).toBe('dependency');
+    expect(prKind('DEV-1-x', env, true)).toBe('ticket');
+    expect(prKind('seo-hotfix', env, false)).toBe('untracked');
   });
 
-  it('merges two items\' presence', () => {
+  it('explains branch-convention breaks', () => {
+    expect(conventionIssues({
+      head: 'DEV-1-thing',
+      title: '[DEV-1] Thing',
+      number: 1,
+    }, 'ticket')).toEqual([]);
+    expect(conventionIssues({
+      head: 'DEV-1-thing-main',
+      title: '[DEV-1] Thing',
+      number: 1,
+    }, 'ticket')).toEqual([]);
+    expect(conventionIssues({
+      head: 'DEV-11940bugfix-x',
+      title: '[DEV-1194] x',
+      number: 2,
+    }, 'ticket')).toEqual([
+      '#2 `DEV-11940bugfix-x`: branch should start <KEY>-<slug>',
+      '#2 `DEV-11940bugfix-x`: title key DEV-1194 ≠ branch key DEV-11940',
+    ]);
+    expect(conventionIssues({
+      head: 'DEV-574-hook',
+      title: '[DEV-575] hook',
+      number: 3,
+    }, 'ticket')[0]).toMatch(/DEV-575 ≠ branch key DEV-574/);
+    expect(conventionIssues({
+      head: 'cursor/dev-1113-x',
+      title: 'fix warnings',
+      number: 4,
+    }, 'ticket')).toHaveLength(2);
+    expect(conventionIssues({
+      head: 'seo-hotfix',
+      number: 5,
+    }, 'untracked')[0]).toMatch(/no ticket key/);
+  });
+
+  it('merges presence and repos', () => {
     expect(mergePresence('merged', 'merged')).toBe('merged');
     expect(mergePresence('merged', 'picked')).toBe('picked');
     expect(mergePresence('merged', 'none')).toBe('partial');
     expect(mergePresence('none', 'none')).toBe('none');
+    const base = {
+      id: 'DEV-1',
+      kind: 'ticket' as const,
+      title: 't',
+      hotfix: false,
+      warnings: [],
+    };
+    const merged = mergeItems(
+      {
+        ...base,
+        prs: [{
+          repo: 'app',
+          number: 5,
+          headRef: 'a',
+          base: 'develop',
+        }],
+        presence: { app: { develop: 'merged' } },
+        exempt: 'not-live',
+      },
+      {
+        ...base,
+        prs: [{
+          repo: 'api',
+          number: 5,
+          headRef: 'b',
+          base: 'develop',
+        }],
+        presence: { api: { develop: 'merged' } },
+      },
+    );
+    expect(merged.prs.map((p) => `${p.repo}#${p.number}`)).toEqual(['app#5', 'api#5']);
+    expect(merged.presence).toEqual({
+      app: { develop: 'merged' },
+      api: { develop: 'merged' },
+    });
+    expect(merged.exempt).toBeUndefined(); // only exempt when both repos' work is
+  });
+
+  it('fills repos where a ticket is already fully shipped', () => {
+    const jiraOnly: Item = {
+      id: 'DEV-1',
+      kind: 'ticket',
+      title: 't',
+      prs: [],
+      presence: {},
+      hotfix: false,
+      warnings: [],
+    };
+    const [filled] = addSyncedPresence([jiraOnly], { api: ['DEV-1'] });
+    expect(filled!.presence).toEqual({
+      api: {
+        develop: 'merged',
+        staging: 'merged',
+        main: 'merged',
+      },
+    });
   });
 
   it('makes a readable placeholder title from a ref', () => {
     expect(titleFromRef('DEV-1314-Cannot-book-a-space')).toBe('Cannot book a space');
-    expect(titleFromRef('cursor/dev-1113-tasks')).toBe('tasks');
     expect(titleFromRef('seo-hotfix')).toBe('seo hotfix');
   });
 });
 
-describe('readGit on a scripted repo', () => {
+describe('PR engine on a scripted repo', () => {
   let repo: string;
+  let scan: RepoScan;
   let items: Map<string, Item>;
-  let heads: Record<string, string>;
-  let syncedKeys: string[];
 
+  const day = (d: number, h = 10) => `2026-09-${String(d).padStart(2, '0')}T${String(h).padStart(2, '0')}:00:00Z`;
+  let now = day(1);
   const git = (...args: string[]) => execFileSync('git', ['-C', repo, ...args], {
     encoding: 'utf8',
     env: {
@@ -65,70 +162,119 @@ describe('readGit on a scripted repo', () => {
       GIT_AUTHOR_EMAIL: 't@t',
       GIT_COMMITTER_NAME: 't',
       GIT_COMMITTER_EMAIL: 't@t',
+      GIT_AUTHOR_DATE: now,
+      GIT_COMMITTER_DATE: now,
     },
   }).trim();
-  const commit = (file: string, content: string, subject: string) => {
-    writeFileSync(join(repo, file), content);
+  const commit = (file: string, subject: string) => {
+    mkdirSync(dirname(join(repo, file)), { recursive: true });
+    writeFileSync(join(repo, file), `${subject}\n`);
     git('add', file);
     git('commit', '-q', '-m', subject);
   };
-  /** Branch `ref` off `from`, add commits, merge into `into` as PR #n. */
-  const pr = (n: number, ref: string, from: string, into: string, commits: [string, string, string][]) => {
-    git('switch', '-q', '-c', ref, from);
-    for (const c of commits) commit(...c);
+  /** Branch `head` off `into`, run `work`, then merge it into `into` as PR #n on `date`. */
+  const pr = (n: number, head: string, into: string, date: string, work: () => void) => {
+    now = date;
+    git('switch', '-q', '-c', head, into);
+    work();
     git('switch', '-q', into);
-    git('merge', '-q', '--no-ff', ref, '-m', `Merge pull request #${n} from org/${ref}`);
+    git('merge', '-q', '--no-ff', head, '-m', `Merge pull request #${n} from org/${head}`);
+  };
+  const envMerge = (n: number, from: string, into: string, date: string) => {
+    now = date;
+    git('switch', '-q', into);
+    git('merge', '-q', '--no-ff', from, '-m', `Merge pull request #${n} from org/${from}`);
+  };
+
+  const titles: Record<number, string> = {
+    1: '[DEV-1] Feature',
+    4: '[DEV-2] Thing',
+    5: '[DEV-2] Thing for staging',
+    6: '[DEV-3] Fix',
+    7: '[DEV-3] Fix',
+    8: '[DEV-3] Fix',
+    9: '[DEV-3] More tests',
+    10: '[DEV-4] Thing',
+    11: '[DEV-4] Thing',
+    12: '[DEV-5] Thing',
+    13: '[DEV-6] X',
+    14: 'Cherry-pick hotfixes',
+    15: '[DEV-8] B',
+    16: '[DEV-9] Infra',
+    17: 'SEO tweak',
+    18: 'Bump x',
+    19: 'Fix conflicts',
+    20: '[DEV-10] More',
   };
 
   beforeAll(() => {
     repo = mkdtempSync(join(tmpdir(), 'release-dashboard-'));
     git('init', '-q', '-b', 'main');
-    commit('base.txt', 'base', 'initial');
-    commit('shared.txt', 'shared', '[DEV-100] already released everywhere');
+    commit('base.txt', 'initial');
+    commit('shipped.txt', '[DEV-10] shipped long ago'); // shared history: DEV-10 is synced
     for (const b of ['develop', 'staging', 'demo', 'main-uk', 'demo-uk']) git('branch', b);
 
-    // DEV-1: released develop → staging → main, then main → main-uk.
-    pr(1, 'DEV-1-feature', 'develop', 'develop', [['a.txt', 'a', '[DEV-1] a'], ['a2.txt', 'a2', '[DEV-1] a2']]);
-    // Release PRs: head is an env branch.
+    // DEV-1: through the train develop → staging → main by whole-branch merges.
+    pr(1, 'DEV-1-feature', 'develop', day(1), () => commit('a.txt', '[DEV-1] feature'));
+    envMerge(2, 'develop', 'staging', day(2));
+    envMerge(3, 'staging', 'main', day(3));
+
+    // DEV-2: twin PRs into develop and staging on the same day.
+    pr(4, 'DEV-2-thing', 'develop', day(4), () => commit('b.txt', '[DEV-2] thing'));
+    pr(5, 'DEV-2-thing-staging', 'staging', day(4, 14), () => commit('b.txt', '[DEV-2] thing'));
+
+    // DEV-3: fan-out hotfix into main, staging and develop, then a follow-up on develop days later.
+    pr(6, 'DEV-3-fix-main', 'main', day(5), () => commit('c-main.txt', '[DEV-3] fix'));
+    pr(7, 'DEV-3-fix-staging', 'staging', day(5, 11), () => commit('c-staging.txt', '[DEV-3] fix'));
+    pr(8, 'DEV-3-fix-develop', 'develop', day(5, 12), () => commit('c-develop.txt', '[DEV-3] fix'));
+    pr(9, 'DEV-3-more-tests', 'develop', day(8), () => commit('c-tests.txt', '[DEV-3] more tests'));
+
+    // DEV-4: on develop and staging, then reverted on staging.
+    pr(10, 'DEV-4-thing-staging', 'staging', day(6), () => commit('d.txt', '[DEV-4] thing'));
+    pr(11, 'DEV-4-thing', 'develop', day(6, 11), () => commit('d.txt', '[DEV-4] thing'));
+    now = day(7);
     git('switch', '-q', 'staging');
-    git('merge', '-q', '--no-ff', 'develop', '-m', 'Merge pull request #2 from org/develop');
+    git('revert', '--no-edit', '-m', '1', 'HEAD~0^{/Merge pull request #10 }');
+
+    // DEV-5: reverted on develop, then the revert reverted: back on develop.
+    pr(12, 'DEV-5-thing', 'develop', day(6, 13), () => commit('e.txt', '[DEV-5] thing'));
+    now = day(7, 11);
+    git('switch', '-q', 'develop');
+    git('revert', '--no-edit', '-m', '1', 'HEAD');
+    now = day(7, 12);
+    git('revert', '--no-edit', 'HEAD');
+
+    // DEV-6: on develop by its PR; reaches staging only as a cherry-pick carried by a chore branch.
+    pr(13, 'DEV-6-x', 'develop', day(6, 14), () => commit('f.txt', '[DEV-6] x'));
+    const picked = git('rev-parse', 'DEV-6-x');
+    pr(14, 'chore/cherry-pick-hotfixes', 'staging', day(7, 13), () => { git('cherry-pick', picked); });
+
+    // PR whose title names a different ticket from its branch: it counts for both.
+    pr(15, 'DEV-7-a', 'develop', day(8, 11), () => commit('g.txt', 'tweak'));
+
+    // DEV-9 only touches infra: off the release path.
+    pr(16, 'DEV-9-infra', 'develop', day(8, 12), () => commit('deployments/main.tf', '[DEV-9] infra'));
+
+    // Untracked hotfix into main, a dependabot bump, and a conflict-fix PR.
+    pr(17, 'seo-hotfix', 'main', day(8, 13), () => commit('seo.txt', 'add price to seo'));
+    pr(18, 'dependabot/npm/x-1.2', 'develop', day(8, 14), () => commit('package.json', 'bump x'));
+    pr(19, 'staging-main-conflicts', 'staging', day(8, 15), () => commit('conflict.txt', 'fix conflicts'));
+
+    // DEV-10 shipped long ago, and now has more work on develop.
+    pr(20, 'DEV-10-more', 'develop', day(9), () => commit('h.txt', '[DEV-10] more'));
+
+    // A commit pushed straight to main with no PR and no key.
+    now = day(9, 11);
     git('switch', '-q', 'main');
-    git('merge', '-q', '--no-ff', 'staging', '-m', 'Merge pull request #3 from org/staging');
-    git('switch', '-q', 'main-uk');
-    git('merge', '-q', '--no-ff', 'main', '-m', 'Merge pull request #4 from org/main');
+    commit('direct.txt', 'quick tweak on prod');
 
-    // DEV-2: on develop only.
-    pr(5, 'DEV-2-next', 'develop', 'develop', [['b.txt', 'b', '[DEV-2] b']]);
-
-    // DEV-3: hotfix PR into main, cherry-picked cleanly onto develop.
-    pr(6, 'DEV-3-hotfix-main', 'main', 'main', [['c.txt', 'c', '[DEV-3] hotfix']]);
-    git('switch', '-q', 'develop');
-    git('cherry-pick', git('rev-parse', 'DEV-3-hotfix-main'));
-
-    // DEV-4: hotfix into main, re-applied on develop with a different diff (conflict-resolved pick).
-    pr(7, 'DEV-4-hotfix-main', 'main', 'main', [['d.txt', 'main version', '[DEV-4] hotfix']]);
-    git('switch', '-q', 'develop');
-    commit('d.txt', 'develop version', '[DEV-4] hotfix');
-
-    // Untracked PR into main.
-    pr(8, 'seo-hotfix', 'main', 'main', [['robots.txt', 'x', 'tweak robots']]);
-
-    // DEV-5: two commits on develop; only one cherry-picked onto staging.
-    pr(9, 'DEV-5-two', 'develop', 'develop', [['e.txt', 'e', '[DEV-5] one'], ['f.txt', 'f', '[DEV-5] two']]);
-    git('switch', '-q', 'staging');
-    git('cherry-pick', git('rev-parse', 'DEV-5-two~1'));
-
-    // Commit in a PR with no key in the ref, but a key in the subject.
-    pr(10, 'specialaccessdemo', 'develop', 'develop', [['g.txt', 'g', '[DEV-6] feedback'], ['h.txt', 'h', 'demo tweak']]);
-
-    const snapshot = readGit({
+    scan = scanRepo({
       path: repo,
       repo: 'app',
       remote: '',
     });
-    items = new Map(snapshot.items.map(i => [i.id, i]));
-    heads = snapshot.heads;
-    syncedKeys = snapshot.syncedKeys;
+    const details = new Map<number, PrDetail>(Object.entries(titles).map(([n, title]) => [Number(n), { title }]));
+    items = new Map(buildItems(scan, details).map((i) => [i.id, i]));
   });
 
   afterAll(() => rmSync(repo, {
@@ -136,176 +282,81 @@ describe('readGit on a scripted repo', () => {
     force: true,
   }));
 
-  const presence = (id: string) => Object.values(items.get(id)!.presence.app!).join(' ');
   // Branch order: develop staging main demo main-uk demo-uk
+  const presence = (id: string) => Object.values(items.get(id)!.presence.app!).join(' ');
+  const prNumbers = (id: string) => items.get(id)!.prs.map((p) => p.number).sort((a, b) => a - b);
 
-  it('reports a short head for every branch', () => {
-    expect(Object.keys(heads)).toEqual(['develop', 'staging', 'main', 'demo', 'main-uk', 'demo-uk']);
-    expect(items.get('DEV-1')!.prs[0]!.repo).toBe('app');
-    expect(heads.main).toMatch(/^[0-9a-f]{7,}$/);
+  it('finds shipped keys and every PR in scope', () => {
+    expect(scan.syncedKeys).toContain('DEV-10');
+    expect(scan.prs.map((p) => p.number)).toEqual(expect.arrayContaining([1, 4, 5, 6, 10, 14, 17, 19, 20]));
   });
 
-  it('tracks a released ticket through every branch it was merged into', () => {
-    expect(presence('DEV-1')).toBe('merged merged merged none merged none');
-    expect(items.get('DEV-1')!.prs.map(p => p.number)).toEqual([1]);
+  it('follows a ticket through whole-branch merges by ancestry', () => {
+    expect(presence('DEV-1')).toBe('merged merged merged none none none');
     expect(items.get('DEV-1')!.hotfix).toBe(false);
   });
 
-  it('ignores release PRs whose head is an env branch', () => {
-    expect([...items.values()].flatMap(i => i.prs.map(p => p.number))).not.toContain(2);
-    expect([...items.keys()]).not.toContain('app-pr-3');
+  it('treats same-day twin PRs as one change', () => {
+    expect(presence('DEV-2')).toBe('merged merged none none none none');
+    expect(prNumbers('DEV-2')).toEqual([4, 5]);
+    expect(items.get('DEV-2')!.hotfix).toBe(true);
   });
 
-  it('shows work on develop only', () => {
-    expect(presence('DEV-2')).toBe('merged none none none none none');
+  it('shows a fan-out hotfix as shipped, and a later follow-up as partial where it is missing', () => {
+    expect(presence('DEV-3')).toBe('merged partial partial none none none');
+    expect(prNumbers('DEV-3')).toEqual([6, 7, 8, 9]);
   });
 
-  it('marks a clean cherry-pick as picked via patch-id and flags the hotfix', () => {
-    expect(presence('DEV-3')).toBe('picked none merged none none none');
-    expect(items.get('DEV-3')!.hotfix).toBe(true);
-    expect(items.get('DEV-3')!.prs[0]!.base).toBe('main');
+  it('removes a PR from a branch where it was reverted', () => {
+    expect(presence('DEV-4')).toBe('merged none none none none none');
+    expect(items.get('DEV-4')!.prs.find((p) => p.number === 10)!.revertedOn).toEqual(['staging']);
   });
 
-  it('falls back to the keyed subject for a pick with a different diff', () => {
-    expect(presence('DEV-4')).toBe('picked none merged none none none');
+  it('puts a PR back when its revert is reverted', () => {
+    expect(presence('DEV-5')).toBe('merged none none none none none');
   });
 
-  it('keeps untracked PRs as their own item', () => {
-    const item = items.get('app-pr-8')!;
-    expect(item.kind).toBe('untracked');
-    expect(presence('app-pr-8')).toBe('none none merged none none none');
+  it('shows work carried by a cherry-pick as picked, and hides the carrier PR', () => {
+    expect(presence('DEV-6')).toBe('merged picked none none none none');
+    expect(items.has('app-pr-14')).toBe(false);
   });
 
-  it('reports partial when only some commits reached a branch', () => {
-    expect(presence('DEV-5')).toBe('merged partial none none none none');
+  it('counts a PR for every key in its title and branch, and flags the mismatch', () => {
+    expect(prNumbers('DEV-7')).toEqual([15]);
+    expect(prNumbers('DEV-8')).toEqual([15]);
+    expect(items.get('DEV-8')!.conventionIssues).toEqual(['#15 `DEV-7-a`: title key DEV-8 ≠ branch key DEV-7']);
   });
 
-  it('uses the subject key when the PR ref has none, and the PR for the rest', () => {
-    expect(presence('DEV-6')).toBe('merged none none none none none');
-    expect(items.get('DEV-6')!.prs.map(p => p.number)).toEqual([10]);
-    expect(items.get('app-pr-10')!.title).toBe('specialaccessdemo');
+  it('marks infra-only tickets as off the release path', () => {
+    expect(items.get('DEV-9')!.exempt).toBe('released-on-develop');
+    expect(items.get('DEV-1')!.exempt).toBeUndefined();
   });
 
-  it('leaves out work that is on every branch, but reports its keys as synced', () => {
-    expect([...items.keys()].some(id => id.includes('initial'))).toBe(false);
-    expect(items.has('DEV-100')).toBe(false);
-    expect(syncedKeys).toEqual(['DEV-100']);
-  });
-});
-
-describe('combining items across repos', () => {
-  const item = (presence: Item['presence'], prs: Item['prs'] = []): Item => ({
-    id: 'DEV-1',
-    kind: 'ticket',
-    title: 't',
-    prs,
-    presence,
-    hotfix: false,
-    warnings: [],
-  });
-
-  it('keeps each repo\'s presence and both repos\' PRs, even with the same PR number', () => {
-    const merged = mergeItems(
-      item({
-        app: {
-          develop: 'merged',
-          staging: 'none',
-        },
-      }, [{
-        repo: 'app',
-        number: 5,
-        headRef: 'DEV-1-a',
-        base: 'develop',
-      }]),
-      item({ api: { develop: 'merged' } }, [{
-        repo: 'api',
-        number: 5,
-        headRef: 'DEV-1-b',
-        base: 'develop',
-      }]),
-    );
-    expect(merged.presence).toEqual({
-      app: {
-        develop: 'merged',
-        staging: 'none',
-      },
-      api: { develop: 'merged' },
+  it('keeps untracked work and dependency bumps as items, and hides conflict fixes', () => {
+    expect(items.get('app-pr-17')).toMatchObject({
+      kind: 'untracked',
+      hotfix: true,
     });
-    expect(merged.prs.map((p) => `${p.repo}#${p.number}`)).toEqual(['app#5', 'api#5']);
+    expect(items.get('app-pr-17')!.conventionIssues![0]).toMatch(/no ticket key/);
+    expect(presence('app-pr-17')).toBe('none none merged none none none');
+    expect(items.get('app-pr-18')!.kind).toBe('dependency');
+    expect(items.has('app-pr-19')).toBe(false);
   });
 
-  it('merges presence branch by branch within the same repo', () => {
-    const merged = mergeItems(item({
-      app: {
-        develop: 'merged',
-        staging: 'merged',
-      },
-    }), item({
-      app: {
-        develop: 'none',
-        staging: 'merged',
-      },
-    }));
-    expect(merged.presence.app).toEqual({
-      develop: 'partial',
-      staging: 'merged',
-    });
+  it('shows a shipped ticket with new work as partial where the new work is missing', () => {
+    expect(presence('DEV-10')).toBe('merged partial partial partial partial partial');
   });
 
-  it('shows a ticket that shipped once and then got another PR as partly on the branches missing the new PR', () => {
-    const [shippedThenMore] = addSyncedPresence(
-      [item({
-        app: {
-          'develop': 'merged',
-          'staging': 'none',
-          'main': 'none',
-          'demo': 'none',
-          'main-uk': 'none',
-          'demo-uk': 'none',
-        },
-      })],
-      { app: ['DEV-1'] },
-    );
-    expect(shippedThenMore!.presence.app).toEqual({
-      'develop': 'merged',
-      'staging': 'partial',
-      'main': 'partial',
-      'demo': 'partial',
-      'main-uk': 'partial',
-      'demo-uk': 'partial',
+  it('lists a commit pushed with no PR and no key as untracked', () => {
+    const direct = [...items.values()].find((i) => i.title === 'quick tweak on prod');
+    expect(direct).toMatchObject({
+      kind: 'untracked',
+      prs: [],
     });
+    expect(Object.values(direct!.presence.app!).join(' ')).toBe('none none merged none none none');
   });
 
-  it('marks a ticket merged everywhere in repos where its key is already in shared history', () => {
-    const [jiraOnly, appOnly] = addSyncedPresence(
-      [item({}), {
-        ...item({ app: { develop: 'merged' } }),
-        id: 'DEV-2',
-      }],
-      {
-        app: ['DEV-1'],
-        api: ['DEV-1', 'DEV-2'],
-      },
-    );
-    expect(jiraOnly!.presence.app).toEqual({
-      'develop': 'merged',
-      'staging': 'merged',
-      'main': 'merged',
-      'demo': 'merged',
-      'main-uk': 'merged',
-      'demo-uk': 'merged',
-    });
-    expect(jiraOnly!.presence.api).toEqual({
-      develop: 'merged',
-      staging: 'merged',
-      main: 'merged',
-    });
-    // DEV-2's app work isn't synced, so it's untouched there; its key is synced in api only.
-    expect(appOnly!.presence.app).toEqual({ develop: 'merged' });
-    expect(appOnly!.presence.api).toEqual({
-      develop: 'merged',
-      staging: 'merged',
-      main: 'merged',
-    });
+  it('records which branches each PR is on', () => {
+    expect(items.get('DEV-1')!.prs[0]!.on).toEqual(['develop', 'staging', 'main']);
   });
 });

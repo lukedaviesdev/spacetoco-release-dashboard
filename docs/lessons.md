@@ -56,6 +56,10 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Ask where testing happens before modelling statuses.** "Done" meant "tested on dev", not "on staging". (Phase 5)
 - **Read the source behind a referenced document before modelling it.** The Confluence "release sheet" turned out to be a live Jira query on fixVersion. (Phase 5)
 
+- **"Every file is exempt" needs neutral files.** Root `package.json` and lockfiles ride along with any change; without ignoring them DEV-874 (Terraform) and DEV-1336 (tests) weren't exempt. Check classification rules against real PRs, not just the scripted repo. (Phase 6)
+- **Untested work reaching main matters more than untested work on staging.** `not-tested` first only looked at staging, which missed BUG-554 already on main. (Phase 6)
+- **Split engines into a git scan and a pure build step.** The scripted-repo test drives the scan once, and every rule in `buildItems` is checked without I/O. (Phase 6)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.

@@ -69,12 +69,48 @@ export const computeHops = (items: Item[], release: string | null): Hop[] => REP
   },
 ));
 
-export const computeWarnings = (item: Item, release: string | null, releases: Release[] = []): Warning[] => {
+/**
+ * The release to judge against: the earliest unreleased version that hasn't already shipped. A version has shipped
+ * (whatever Jira says) when most of its tickets with code are fully on main. Not all of them: a release usually leaves a
+ * straggler or two behind (27.3.0 shipped on 1 Oct without DEV-1159), and those get `missed-release`.
+ * ponytail: majority vote; a release with one big early hotfix and little else could trip it. Use release-merge dates
+ * (staging→main PRs) if that happens.
+ */
+export const pickCurrentRelease = (
+  items: Item[],
+  releases: Release[],
+): { current: string | null, shippedUnmarked: string[] } => {
+  const shippedUnmarked: string[] = [];
+  for (const r of releases) {
+    if (r.released || ROLLING_VERSIONS.includes(r.name)) continue;
+    const withCode = items.filter((i) => !i.exempt && i.jira?.fixVersions.includes(r.name) && Object.keys(i.presence).length);
+    if (withCode.length && withCode.filter((i) => fullyOn(i, 'main')).length * 2 > withCode.length) {
+      shippedUnmarked.push(r.name);
+      continue;
+    }
+    return {
+      current: r.name,
+      shippedUnmarked,
+    };
+  }
+  return {
+    current: null,
+    shippedUnmarked,
+  };
+};
+
+export const computeWarnings = (
+  item: Item,
+  release: string | null,
+  releases: Release[] = [],
+  currentSprint?: string,
+  shippedUnmarked: string[] = [],
+): Warning[] => {
   const warnings: Warning[] = [];
   const add = (w: Warning, when: unknown) => when && warnings.push(w);
   const repos = Object.keys(item.presence) as RepoId[];
   if (!item.exempt) {
-    const shipped = new Set(releases.filter((r) => r.released).map((r) => r.name));
+    const shipped = new Set([...releases.filter((r) => r.released).map((r) => r.name), ...shippedUnmarked]);
     const versions = item.jira?.fixVersions.filter((v) => !ROLLING_VERSIONS.includes(v)) ?? [];
     const aheadOnStaging = repos.some((r) => rankOn(item, r, 'staging') > rankOn(item, r, 'main'));
     const releaseWork = item.kind !== 'dependency' && aheadOnStaging && !!release;
@@ -90,7 +126,12 @@ export const computeWarnings = (item: Item, release: string | null, releases: Re
     // Jira's lifecycle (Released once on main) disagrees with where the code is.
     add('status-mismatch', item.jira && repos.length && RELEASED_STATUS.test(item.jira.status) !== fullyOn(item, 'main'));
     add('follow-up', repos.some((r) => Object.values(item.presence[r] ?? {}).includes('partial')));
-    add('done-no-fixversion', item.jira?.statusCategory === 'done' && !item.jira.fixVersions.length);
+    // In the current sprint, Done or already on develop, with no fixVersion: it can't be wanted until someone sets one.
+    const noVersion = item.kind === 'ticket' && !!item.jira && !item.jira.fixVersions.length;
+    const needsVersion = noVersion && !!currentSprint && item.jira?.sprint === currentSprint
+      && (item.jira.statusCategory === 'done' || repos.some((r) => rankOn(item, r, 'develop') > 0));
+    add('needs-fixversion', needsVersion);
+    add('done-no-fixversion', !needsVersion && noVersion && item.jira?.statusCategory === 'done');
   }
   add('convention', item.conventionIssues?.length);
   add('invalid-key', item.invalidKey);
@@ -99,10 +140,16 @@ export const computeWarnings = (item: Item, release: string | null, releases: Re
 };
 
 /** Items with warnings for `release`, and hops judged against it. */
-export const judge = (items: Item[], release: string | null, releases: Release[] = []): { items: Item[], hops: Hop[] } => {
+export const judge = (
+  items: Item[],
+  release: string | null,
+  releases: Release[] = [],
+  currentSprint?: string,
+  shippedUnmarked: string[] = [],
+): { items: Item[], hops: Hop[] } => {
   const judged = items.map((item) => ({
     ...item,
-    warnings: computeWarnings(item, release, releases),
+    warnings: computeWarnings(item, release, releases, currentSprint, shippedUnmarked),
   }));
   return {
     items: judged,

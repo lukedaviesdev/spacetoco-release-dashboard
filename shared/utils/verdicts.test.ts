@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Item, JiraInfo, Snapshot } from '../types/snapshot';
-import { computeHops, computeWarnings, judge } from './verdicts';
+import { computeHops, computeWarnings, judge, pickCurrentRelease } from './verdicts';
 
 const R = '2.0.0';
 
@@ -263,11 +263,78 @@ describe('computeWarnings', () => {
   });
 });
 
+describe('needs-fixversion', () => {
+  const sprint = 'Sprint 7';
+  const noVersion = (app: string, over: Partial<JiraInfo> = {}) => computeWarnings(
+    item('A', app, {
+      jira: {
+        fixVersions: [],
+        sprint,
+        ...over,
+      },
+    }), R, [], sprint,
+  );
+
+  it('flags current-sprint tickets that are Done or already on develop', () => {
+    expect(noVersion('')).toEqual(['needs-fixversion']);
+    expect(noVersion('m.....', { statusCategory: 'indeterminate' })).toEqual(['needs-fixversion']);
+  });
+
+  it('stays a quiet note outside the current sprint, and silent for open work with no code', () => {
+    expect(noVersion('m.....', { sprint: 'Sprint 6' })).toEqual(['done-no-fixversion']);
+    expect(noVersion('', { statusCategory: 'new' })).toEqual([]);
+  });
+});
+
+describe('pickCurrentRelease', () => {
+  const releases = [
+    {
+      name: '1.0.0',
+      released: true,
+    },
+    {
+      name: '2.0.0',
+      released: false,
+    },
+    {
+      name: 'Rolling Hotfixes',
+      released: false,
+    },
+    {
+      name: '3.0.0',
+      released: false,
+    },
+  ];
+
+  it('skips an unreleased version whose code is all on main, and reports it', () => {
+    const items = [item('A', 'mmmmmm'), item('B', 'mm....', { jira: { fixVersions: ['3.0.0'] } })];
+    expect(pickCurrentRelease(items, releases)).toEqual({
+      current: '3.0.0',
+      shippedUnmarked: ['2.0.0'],
+    });
+  });
+
+  it('treats a release as shipped when most of it is on main, leaving stragglers as missed releases', () => {
+    const items = [item('A', 'mmmmmm'), item('B', 'mmm...'), item('C', 'm.....')];
+    expect(pickCurrentRelease(items, releases)).toEqual({
+      current: '3.0.0',
+      shippedUnmarked: ['2.0.0'],
+    });
+    expect(computeWarnings(items[2]!, '3.0.0', releases, undefined, ['2.0.0'])).toContain('missed-release');
+  });
+
+  it('keeps it while most of its work is still to ship, or when nothing in it has code yet', () => {
+    expect(pickCurrentRelease([item('A', 'mm....')], releases).current).toBe('2.0.0');
+    expect(pickCurrentRelease([item('A', 'mmm...'), item('B', 'm.....'), item('C', 'mm....')], releases).current).toBe('2.0.0');
+    expect(pickCurrentRelease([item('A', '')], releases).current).toBe('2.0.0');
+  });
+});
+
 describe('the committed fixture', () => {
   const fixture: Snapshot = JSON.parse(readFileSync(new URL('../fixtures/snapshot.json', import.meta.url), 'utf8'));
 
   it('matches what the engine computes, so the UI is built against real verdicts', () => {
-    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases);
+    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases, fixture.currentSprint);
     expect(judged.hops).toEqual(fixture.hops);
     expect(judged.items.map((i) => [i.id, i.warnings])).toEqual(fixture.items.map((i) => [i.id, i.warnings]));
   });

@@ -395,7 +395,7 @@
       "hotfix": false,
       "warnings": [
         "extra-on-staging",
-        "done-no-fixversion"
+        "needs-fixversion"
       ]
     },
     {
@@ -544,6 +544,46 @@
       },
       "hotfix": false,
       "warnings": []
+    },
+    {
+      "id": "DEV-1210",
+      "kind": "ticket",
+      "title": "Tidy legacy booking filters",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [],
+        "sprint": "Sprint 39",
+        "assignee": "Hana Lee"
+      },
+      "prs": [
+        {
+          "repo": "app",
+          "number": 1099,
+          "headRef": "DEV-1210-tidy-filters",
+          "base": "develop",
+          "title": "[DEV-1210] Tidy filters",
+          "author": "hana-lee",
+          "mergedAt": "2026-09-12T03:00:00Z",
+          "on": [
+            "develop"
+          ]
+        }
+      ],
+      "presence": {
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "warnings": [
+        "done-no-fixversion"
+      ]
     }
   ],
   "hops": [
@@ -555,13 +595,15 @@
       "aheadIds": [
         "DEV-1189",
         "DEV-1290",
-        "app-pr-1164"
+        "app-pr-1164",
+        "DEV-1210"
       ],
       "bringUpIds": [
         "DEV-1189"
       ],
       "blockingIds": [
-        "DEV-1290"
+        "DEV-1290",
+        "DEV-1210"
       ],
       "backSyncIds": [
         "DEV-1200"
@@ -654,5 +696,6 @@
       "blockingIds": [],
       "backSyncIds": []
     }
-  ]
+  ],
+  "currentSprint": "Sprint 41"
 }

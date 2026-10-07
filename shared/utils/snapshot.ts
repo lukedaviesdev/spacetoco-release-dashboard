@@ -75,6 +75,7 @@ export const WARNINGS = [
   'status-mismatch',
   'follow-up',
   'convention',
+  'needs-fixversion',
   'done-no-fixversion',
   'invalid-key',
   'untracked',

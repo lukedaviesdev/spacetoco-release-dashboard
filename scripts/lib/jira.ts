@@ -41,6 +41,8 @@ export interface JiraResult {
   issues: Map<string, { summary: string, jira: JiraInfo }>;
   /** Keys asked for that Jira doesn't know (typos, wrong prefix, or no permission). */
   missingKeys: string[];
+  /** The active sprint most fetched tickets are in, e.g. 'Sprint 2707'. */
+  currentSprint?: string;
 }
 
 // ---------- pure helpers ----------
@@ -180,6 +182,11 @@ export const readJira = async (config: JiraConfig, keys: string[], fetchImpl: ty
   const releases = toReleases(versions);
 
   const issues = new Map<string, { summary: string, jira: JiraInfo }>();
+  const active = new Map<string, number>();
+  const countActive = (issue: JiraIssue) => {
+    const sprints = sprintFieldId ? issue.fields[sprintFieldId] as JiraSprint[] | null : null;
+    for (const s of sprints ?? []) if (s.state?.toLowerCase() === 'active') active.set(s.name, (active.get(s.name) ?? 0) + 1);
+  };
 
   // Keys found in git. bulkfetch silently omits keys that don't exist, which is how invalid keys are found.
   const projectKeys = keys.filter((k) => config.projects.includes(k.split('-')[0]!));
@@ -191,7 +198,10 @@ export const readJira = async (config: JiraConfig, keys: string[], fetchImpl: ty
         fields: issueFields,
       }),
     });
-    for (const issue of found) issues.set(issue.key, mapIssue(issue, sprintFieldId));
+    for (const issue of found) {
+      issues.set(issue.key, mapIssue(issue, sprintFieldId));
+      countActive(issue);
+    }
   }
   // ponytail: an issue moved to another project comes back under its new key, so its old key reads as missing.
   // Map old → new via `expand: ['changelog']` if moved tickets turn up in practice.
@@ -209,7 +219,10 @@ export const readJira = async (config: JiraConfig, keys: string[], fetchImpl: ty
         ...(nextPageToken && { nextPageToken }),
       }),
     });
-    for (const issue of page.issues) issues.set(issue.key, mapIssue(issue, sprintFieldId));
+    for (const issue of page.issues) {
+      issues.set(issue.key, mapIssue(issue, sprintFieldId));
+      countActive(issue);
+    }
     nextPageToken = page.nextPageToken ?? undefined;
   } while (nextPageToken);
 
@@ -218,5 +231,6 @@ export const readJira = async (config: JiraConfig, keys: string[], fetchImpl: ty
     currentRelease: currentReleaseOf(releases),
     issues,
     missingKeys,
+    ...(active.size && { currentSprint: [...active].sort((a, b) => b[1] - a[1])[0]![0] }),
   };
 };

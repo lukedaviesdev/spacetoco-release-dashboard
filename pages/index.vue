@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Item, Warning } from '~~/shared/types/snapshot';
+import type { Exempt, Item, Warning } from '~~/shared/types/snapshot';
 import { REPOS } from '~~/shared/utils/snapshot';
 
 const store = useSnapshotStore();
@@ -12,6 +12,10 @@ const github = (repo: string) => REPOS.find((r) => r.id === repo)!.github;
 const PROBLEMS: Partial<Record<Warning, { text: string, color: string }>> = {
   'extra-on-staging': {
     text: 'Extra on staging',
+    color: 'signal-danger',
+  },
+  'not-tested': {
+    text: 'Not tested on dev',
     color: 'signal-danger',
   },
   'not-on-develop': {
@@ -29,8 +33,15 @@ const NOTES: Partial<Record<Warning, [string, string]>> = {
   'done-no-fixversion': ['No fixVersion', 'Done with no fixVersion'],
   'invalid-key': ['Unknown key', 'Key not found in Jira'],
   'untracked': ['No ticket', 'No ticket key on the branch, commits or PR title'],
+  'follow-up': ['Follow-up behind', 'A later PR for this ticket hasn\'t reached every branch the ticket is on'],
 };
-type Flaggable = Pick<Item, 'warnings' | 'presence' | 'jira'>;
+/** Off the release path: [label, tooltip]. */
+const EXEMPT_NOTES: Record<Exempt, [string, string]> = {
+  'released-on-develop': ['Infra: live from develop', 'Only changes deployments/, which is applied from develop'],
+  'never-ships': ['Tooling: never ships', 'Only changes tests or CI'],
+  'not-live': ['Backend: not live yet', 'Only changes packages/backend, the new monorepo backend'],
+};
+type Flaggable = Pick<Item, 'warnings' | 'presence' | 'jira' | 'exempt' | 'conventionIssues'>;
 const GAP_FLAGS = {
   none: {
     text: 'Released, not on main',
@@ -51,9 +62,11 @@ const problemsOf = (item: Flaggable) => {
 // On main but not Released is Jira housekeeping: counted in the group header and hinted on the status,
 // not flagged per row.
 const notMarkedReleased = (item: Flaggable) => item.warnings.includes('status-mismatch') && !releasedGap(item);
-const notesOf = (item: Flaggable): [string, string][] => item.warnings
-  .filter((w) => w !== 'status-mismatch' && NOTES[w])
-  .map((w) => NOTES[w]!);
+const notesOf = (item: Flaggable): [string, string][] => [
+  ...(item.exempt ? [EXEMPT_NOTES[item.exempt]] : []),
+  ...item.warnings.filter((w) => w !== 'status-mismatch' && NOTES[w]).map((w) => NOTES[w]!),
+  ...(item.conventionIssues?.length ? [['Branch convention', item.conventionIssues.join('\n')] as [string, string]] : []),
+];
 /** Problems first (coloured), then housekeeping notes (muted). One shows; the rest are in the tooltip. */
 const flagsOf = (item: Flaggable) => [
   ...problemsOf(item).map((p) => ({

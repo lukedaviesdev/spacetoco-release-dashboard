@@ -60,6 +60,9 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Untested work reaching main matters more than untested work on staging.** `not-tested` first only looked at staging, which missed BUG-554 already on main. (Phase 6)
 - **Split engines into a git scan and a pure build step.** The scripted-repo test drives the scan once, and every rule in `buildItems` is checked without I/O. (Phase 6)
 
+- **"Current release = earliest unreleased version" trusts Jira housekeeping that lags.** 27.3.0 shipped on 1 Oct but wasn't marked released, so every verdict was judged against the previous release. Detect "looks shipped" from the branches and say so. A strict "all on main" rule never fires, because releases leave stragglers (DEV-1159), so use a majority. (Phase 6, user correction)
+- **When the user says the data is wrong, show them the data before changing rules.** "None of these have fixVersions" turned out to be 11 of 29; the real problem was the stale current release. (Phase 6)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.

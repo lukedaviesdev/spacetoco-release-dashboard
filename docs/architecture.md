@@ -115,7 +115,7 @@ If a ticket's files span several of these groups: `released-on-develop` wins, th
 - One JQL search (`/rest/api/3/search/jql`, the old `/search` is deprecated):
   `project in (DEV, BUG) AND (fixVersion in unreleasedVersions() OR key in (<keys found in git window>))`
 - Versions via `/rest/api/3/project/{key}/versions`.
-- **Current release** = earliest unreleased fixVersion (by `releaseDate`, then name). Selectable in the UI. Versions are marked released in Jira when they ship.
+- **Current release** = the earliest unreleased fixVersion (by `releaseDate`, then name) **that hasn't already shipped**. A version counts as shipped, whatever Jira says, when most of its tickets with code are fully on main (27.3.0 went out on 1 Oct but wasn't marked released). Skipped versions go in `shippedUnmarked`, the board shows a banner, and their stragglers get `missed-release`. Selectable in the UI; Rolling Hotfixes is never current. **A release is defined by fixVersion** (confirmed 2026-10-07): Jira should be kept up to date, and the dashboard flags the gaps.
 - **Done** = status category `done`, not status names.
 - **Status lifecycle vs branches** (the team's workflow): **In testing** while the work is on staging being tested manually → **Done** once testing passes (ready for main) → **Released** once merged to main. Done and Released are both in the `done` category, which is what staging→main requires. Real statuses are numbered, e.g. `(5) Ready for Testing`, `(6) In testing`, `(7) Done`, `(8) READY TO RELEASE`, `RELEASED`.
 - Items are **grouped by fixVersion**; sprint is shown as a chip on each row for readability, and is a filter.
@@ -151,7 +151,8 @@ Dependabot items and exempt tickets never land in `blockingIds`. Untracked real 
 | `status-mismatch` | split by UI | Released but not fully on main (none → high, partly → medium), or fully on main but not Released (housekeeping) |
 | `follow-up` | low | a later PR hasn't followed the ticket onto some branch it's on |
 | `convention` | low | the ticket's PRs break the branch convention (reasons on the item) |
-| `done-no-fixversion` | low | Done with no fixVersion |
+| `needs-fixversion` | medium | in the **current sprint** (Jira's active sprint, `currentSprint`), no fixVersion, and Done or already on develop: it can't be wanted until someone sets one |
+| `done-no-fixversion` | low | Done with no fixVersion, outside the current sprint |
 | `invalid-key` | low | key not found in Jira |
 | `untracked` | low (but blocks merges) | no ticket key |
 
@@ -159,7 +160,7 @@ Dependabot items and exempt tickets never land in `blockingIds`. Untracked real 
 
 The source of truth is `shared/types/snapshot.ts`, with enums and the `REPOS` topology in `shared/utils/snapshot.ts`. In short:
 - `heads[repo][branch]`: short SHAs.
-- `releases`, `currentRelease`: from Jira versions.
+- `releases`, `currentRelease`: from Jira versions; `shippedUnmarked`: versions skipped because they've already shipped; `currentSprint`: Jira's active sprint.
 - `items[]`: one per ticket key, untracked PR or dependency bump (`kind`).
   - `presence[repo][branch]` lists only repos with work for the item.
   - `exempt` marks tickets off the release path.

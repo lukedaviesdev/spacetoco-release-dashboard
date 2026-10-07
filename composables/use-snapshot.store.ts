@@ -40,7 +40,8 @@ export const rowState = (item: Item, hops: Hop[]): RowState => {
   if (w.includes('extra-on-staging') || w.includes('not-tested') || gap === 'none') return 'danger';
   if (hops.some((h) => h.backSyncIds.includes(item.id))) return 'return';
   const extraIntoStaging = hops.some((h) => h.from === 'develop' && h.blockingIds.includes(item.id));
-  if (extraIntoStaging || gap === 'partial' || w.includes('missed-release') || w.includes('not-on-develop')) return 'caution';
+  const caution = ['missed-release', 'not-on-develop', 'needs-fixversion'] as const;
+  if (extraIntoStaging || gap === 'partial' || caution.some((c) => w.includes(c))) return 'caution';
   return 'ink';
 };
 
@@ -168,7 +169,13 @@ export const useSnapshotStore = defineStore('snapshot', () => {
 
   /** Verdicts and warnings re-judged for the selected release. */
   const judged = computed(() => (snapshot.value
-    ? judge(snapshot.value.items, release.value, snapshot.value.releases)
+    ? judge(
+      snapshot.value.items,
+      release.value,
+      snapshot.value.releases,
+      snapshot.value.currentSprint,
+      snapshot.value.shippedUnmarked,
+    )
     : {
       items: [] as Item[],
       hops: [] as Hop[],

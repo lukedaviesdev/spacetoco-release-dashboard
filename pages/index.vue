@@ -26,6 +26,10 @@ const PROBLEMS: Partial<Record<Warning, { text: string, color: string }>> = {
     text: 'Missed release',
     color: 'signal-caution',
   },
+  'needs-fixversion': {
+    text: 'Needs a fixVersion',
+    color: 'signal-caution',
+  },
 };
 /** [label, tooltip] */
 const NOTES: Partial<Record<Warning, [string, string]>> = {
@@ -147,6 +151,14 @@ const groupBy = [{
   key: 'groupKey',
   order: 'asc' as const,
 }];
+/** Banner when Jira's earliest unreleased version has in fact shipped and the board moved on. */
+const shippedNotice = computed(() => {
+  const shipped = store.snapshot?.shippedUnmarked ?? [];
+  if (!shipped.length) return '';
+  const one = shipped.length === 1;
+  return `${shipped.join(', ')} ${one ? 'looks' : 'look'} shipped: every ticket with code is on main, but Jira hasn't marked `
+    + `${one ? 'it' : 'them'} released. Showing ${store.snapshot?.currentRelease ?? 'no release'} as the current release.`;
+});
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const groupLabel = (key: string) => key.split('|').slice(1).join('|');
 /** '(9) RELEASED' → 'Released': Jira mixes numbering and case. Only shouting is recased, so 'In QA' survives. */
@@ -172,6 +184,14 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
     />
     <template v-else-if="store.snapshot">
       <board-toolbar />
+      <v-alert
+        v-if="shippedNotice"
+        :text="shippedNotice"
+        class="board__shipped"
+        density="compact"
+        type="warning"
+        variant="tonal"
+      />
       <div class="board__header">
         <transit-map />
         <board-summary />
@@ -311,6 +331,7 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
 }
 
 .board__table { background: transparent; }
+.board__shipped { margin-top: 12px; }
 
 /* One header band: the map, with the problem counts and legend in the right-hand gutter. */
 .board__header {

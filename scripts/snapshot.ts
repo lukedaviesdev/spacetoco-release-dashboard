@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Item, RepoId, Snapshot } from '../shared/types/snapshot.ts';
 import { REPOS } from '../shared/utils/snapshot.ts';
-import { judge } from '../shared/utils/verdicts.ts';
+import { judge, pickCurrentRelease } from '../shared/utils/verdicts.ts';
 import { addSyncedPresence, buildItems, mergeItems, scanRepo, type PrDetail } from './lib/git.ts';
 import { readPrs } from './lib/github.ts';
 import { applyJira, dropDoneWithoutCode, readJira } from './lib/jira.ts';
@@ -64,7 +64,8 @@ for (const repo of REPOS) {
 }
 let items = [...byId.values()];
 let releases: Snapshot['releases'] = [];
-let currentRelease: Snapshot['currentRelease'] = null;
+let currentRelease: Snapshot['currentRelease'] | undefined;
+let currentSprint: string | undefined;
 
 if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
   const jira = await readJira({
@@ -75,7 +76,7 @@ if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
     cloudId: env.JIRA_CLOUD_ID || undefined,
   }, items.filter((i) => i.kind === 'ticket').map((i) => i.id));
   items = applyJira(items, jira);
-  ({ releases, currentRelease } = jira);
+  ({ releases, currentRelease, currentSprint } = jira);
   const unknown = jira.missingKeys.length ? ` (${jira.missingKeys.join(', ')})` : '';
   log(`Jira: ${jira.issues.size} issues, ${releases.length} versions, current release ${currentRelease ?? 'none'}, `
     + `${jira.missingKeys.length} unknown keys${unknown}.`);
@@ -89,13 +90,22 @@ const before = items.length;
 items = dropDoneWithoutCode(items);
 if (before > items.length) log(`Dropped ${before - items.length} Done tickets with no code in either repo.`);
 
-const judged = judge(items, currentRelease, releases);
+// Jira's earliest unreleased version may have already gone out: skip any whose code is all on main.
+const picked = pickCurrentRelease(items, releases);
+if (picked.shippedUnmarked.length) {
+  log(`Looks shipped but not marked released in Jira: ${picked.shippedUnmarked.join(', ')}. Using ${picked.current ?? 'none'}.`);
+}
+currentRelease = picked.current;
+
+const judged = judge(items, currentRelease, releases, currentSprint, picked.shippedUnmarked);
 
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),
   heads,
   releases,
   currentRelease,
+  ...(picked.shippedUnmarked.length && { shippedUnmarked: picked.shippedUnmarked }),
+  ...(currentSprint && { currentSprint }),
   items: judged.items,
   hops: judged.hops,
 };

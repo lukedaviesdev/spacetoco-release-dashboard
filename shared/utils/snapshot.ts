@@ -2,10 +2,22 @@
 
 /** Tickets whose PRs only change these paths don't ride the release branches. First match wins per file. */
 export const EXEMPT_PATHS = [
-  { prefix: 'deployments/', exempt: 'released-on-develop' },
-  { prefix: 'packages/backend/', exempt: 'not-live' },
-  { prefix: 'packages/testing/', exempt: 'never-ships' },
-  { prefix: '.github/', exempt: 'never-ships' },
+  {
+    prefix: 'deployments/',
+    exempt: 'released-on-develop',
+  },
+  {
+    prefix: 'packages/backend/',
+    exempt: 'not-live',
+  },
+  {
+    prefix: 'packages/testing/',
+    exempt: 'never-ships',
+  },
+  {
+    prefix: '.github/',
+    exempt: 'never-ships',
+  },
 ] as const;
 /** When a ticket's files span several exempt groups, the first in this list wins. */
 export const EXEMPT_ORDER = ['released-on-develop', 'not-live', 'never-ships'] as const;

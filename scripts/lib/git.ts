@@ -247,7 +247,13 @@ export function scanRepo({ path, repo, remote = 'origin/', projects = DEFAULT_PR
     };
   });
 
-  return { repo, heads, syncedKeys, prs, commits };
+  return {
+    repo,
+    heads,
+    syncedKeys,
+    prs,
+    commits,
+  };
 }
 
 // ---------- build (pure) ----------
@@ -287,7 +293,8 @@ export function buildItems(scan: RepoScan, details: Map<number, PrDetail>, proje
       keys = subjectKeys;
       kind = 'ticket';
     }
-    const base = (branches as readonly string[]).includes(detail?.base ?? '') ? detail!.base as Branch : pr.landedOn ?? 'develop';
+    const githubBase = (branches as readonly string[]).includes(detail?.base ?? '') ? detail!.base as Branch : undefined;
+    const base = githubBase ?? pr.landedOn ?? 'develop';
     return {
       pr,
       kind,
@@ -332,7 +339,11 @@ export function buildItems(scan: RepoScan, details: Map<number, PrDetail>, proje
     const exempt = own.length && files.length && groups.every(Boolean)
       ? EXEMPT_ORDER.find((e) => groups.includes(e))
       : undefined;
-    const issues = own.flatMap((c) => conventionIssues({ head: c.pr.head, title: c.entry.title, number: c.pr.number }, c.kind, projects));
+    const issues = own.flatMap((c) => conventionIssues({
+      head: c.pr.head,
+      title: c.entry.title,
+      number: c.pr.number,
+    }, c.kind, projects));
     const first = own[0];
     items.push({
       id: key,
@@ -350,7 +361,11 @@ export function buildItems(scan: RepoScan, details: Map<number, PrDetail>, proje
 
   // Untracked work and dependency bumps: one item per PR.
   for (const c of classified.filter((x) => x.kind === 'untracked' || x.kind === 'dependency')) {
-    const issues = conventionIssues({ head: c.pr.head, title: c.entry.title, number: c.pr.number }, c.kind, projects);
+    const issues = conventionIssues({
+      head: c.pr.head,
+      title: c.entry.title,
+      number: c.pr.number,
+    }, c.kind, projects);
     items.push({
       id: `${scan.repo}-pr-${c.pr.number}`,
       kind: c.kind === 'dependency' ? 'dependency' : 'untracked',
@@ -365,7 +380,8 @@ export function buildItems(scan: RepoScan, details: Map<number, PrDetail>, proje
 
   // Commits pushed straight to a branch, with no PR and no ticket key: untracked, one item each.
   const prCommits = new Set(classified.flatMap((c) => c.pr.commits));
-  const pushed = scan.commits.filter((x) => !prCommits.has(x.sha) && !x.revert && !extractKeys(x.subject, projects).length && x.on.length);
+  const pushed = scan.commits
+    .filter((x) => !prCommits.has(x.sha) && !x.revert && !extractKeys(x.subject, projects).length && x.on.length);
   for (const c of pushed) {
     items.push({
       id: `${scan.repo}-commit-${c.sha.slice(0, 7)}`,

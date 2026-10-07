@@ -104,11 +104,12 @@ const choose = (hop: Hop | undefined, list: HopList | null | undefined) => {
 const activeLabel = computed(() => {
   const [repo, from, to, list] = activeHop.value?.split(':') ?? [];
   if (!repo) return null;
-  const words = {
+  const words: Record<HopList, string> = {
     ahead: 'ahead',
-    blocking: list === 'blocking' && from === 'staging' ? 'to hold back' : 'outside the release',
+    bringUp: 'to bring up',
+    blocking: from === 'staging' ? 'to hold back' : 'not ready, would come along',
     back: 'to back-sync',
-  } as const;
+  };
   return `${repo} ${from} → ${to}: ${words[list as HopList]}`;
 });
 

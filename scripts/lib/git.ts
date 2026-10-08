@@ -1,15 +1,26 @@
+// PR-based engine (docs/architecture.md "Engine rules"). scanRepo does all the git work; buildItems turns a scan plus
+// GitHub PR details into dashboard items without any I/O, so every rule is testable on a scripted repo.
 import { execFileSync } from 'node:child_process';
-import type { Branch, Item, Presence, PullRequest, RepoHeads, RepoId, RepoPresence } from '../../shared/types/snapshot.ts';
-import { REPOS } from '../../shared/utils/snapshot.ts';
+import type { Branch, Exempt, Item, Presence, PullRequest, RepoHeads, RepoId, RepoPresence } from '../../shared/types/snapshot.ts';
+import { EXEMPT_ORDER, REPOS } from '../../shared/utils/snapshot.ts';
 
 export const DEFAULT_PROJECTS = ['DEV', 'BUG'];
 
+/** PRs into different bases within this window are twins: the same change made once per branch. */
+const TWIN_MS = 24 * 3600 * 1000;
+
 // ---------- pure helpers ----------
 
-/** First ticket key in `text` for the given Jira projects, upper-cased. 'cursor/dev-1113-x' → 'DEV-1113'. */
+const keyPattern = (projects: string[]) => new RegExp(`(?:^|[^A-Za-z])(${projects.join('|')})-(\\d+)`, 'gi');
+
+/** Every ticket key in `text`, upper-cased, in order. 'cursor/dev-1113-x' → ['DEV-1113']. */
+export function extractKeys(text: string, projects = DEFAULT_PROJECTS): string[] {
+  return [...new Set([...text.matchAll(keyPattern(projects))].map((m) => `${m[1]!.toUpperCase()}-${m[2]}`))];
+}
+
+/** First ticket key in `text`. */
 export function extractKey(text: string, projects = DEFAULT_PROJECTS): string | undefined {
-  const match = text.match(new RegExp(`(?:^|[^A-Za-z])(${projects.join('|')})-(\\d+)`, 'i'));
-  return match ? `${match[1]!.toUpperCase()}-${match[2]}` : undefined;
+  return extractKeys(text, projects)[0];
 }
 
 /** 'Merge pull request #1162 from spacetoco/DEV-1314-x' → { number: 1162, headRef: 'DEV-1314-x' }. */
@@ -21,25 +32,14 @@ export function parsePrMerge(subject: string): { number: number, headRef: string
   } : undefined;
 }
 
-/** Combine per-commit presence on one branch into the item's presence. */
-export function combinePresence(commits: ('merged' | 'picked' | 'missing')[]): Presence {
-  const missing = commits.filter(c => c === 'missing').length;
-  if (missing === commits.length) return 'none';
-  if (missing) return 'partial';
-  return commits.includes('picked') ? 'picked' : 'merged';
-}
-
-/** Presence of two items' work combined, e.g. when an untracked PR turns out to belong to a ticket. */
+/** Presence of two items' work combined, e.g. the same ticket found in both repos. */
 export function mergePresence(a: Presence, b: Presence): Presence {
   if (a === 'none' && b === 'none') return 'none';
   if (a === 'none' || b === 'none' || a === 'partial' || b === 'partial') return 'partial';
   return a === 'merged' && b === 'merged' ? 'merged' : 'picked';
 }
 
-/**
- * Two items for the same id combined: the same ticket found in both repos, or an untracked PR that turned out to
- * belong to a ticket. Presence merges per repo and branch.
- */
+/** Two items for the same id combined (the same ticket in both repos). Presence merges per repo and branch. */
 export function mergeItems(a: Item, b: Item): Item {
   const presence = { ...a.presence };
   for (const [repo, branches] of Object.entries(b.presence) as [RepoId, RepoPresence][]) {
@@ -48,38 +48,34 @@ export function mergeItems(a: Item, b: Item): Item {
       ? Object.fromEntries(Object.entries(branches).map(([branch, p]) => [branch, mergePresence(mine[branch as Branch]!, p)]))
       : branches;
   }
+  const issues = [...new Set([...a.conventionIssues ?? [], ...b.conventionIssues ?? []])];
+  // Exempt only if both repos' work is exempt.
+  const exempt = a.exempt && b.exempt ? EXEMPT_ORDER.find((e) => e === a.exempt || e === b.exempt) : undefined;
+  const { exempt: _a, conventionIssues: _b, ...rest } = a;
   return {
-    ...a,
+    ...rest,
     prs: [...a.prs, ...b.prs.filter((pr) => !a.prs.some((p) => p.repo === pr.repo && p.number === pr.number))],
     presence,
     hotfix: a.hotfix || b.hotfix,
+    ...(exempt && { exempt }),
+    ...(issues.length && { conventionIssues: issues }),
   };
 }
 
 /**
- * A key in a repo's shared history means some of that ticket's work is already on every branch there.
- * - No window work in the repo: it's fully released there, so merged on every branch (Jira-only tickets, or tickets
- *   still open in the other repo).
- * - Window work too (a ticket shipped once, then got another PR): branches missing the new work hold only part of the
- *   ticket, so `none` becomes `partial`.
+ * Tickets with no work in a repo's scope whose key is in that repo's shipped history are fully released there:
+ * merged on all its branches (Jira-only tickets, or tickets still open in the other repo).
  */
 export function addSyncedPresence(items: Item[], syncedKeys: Partial<Record<RepoId, string[]>>): Item[] {
-  const synced = REPOS.map((r) => ({
-    repo: r,
-    keys: new Set(syncedKeys[r.id] ?? []),
-  }));
   return items.map((item) => {
-    const add = synced.filter(({ keys }) => item.kind === 'ticket' && keys.has(item.id));
+    if (item.kind !== 'ticket') return item;
+    const add = REPOS.filter((r) => !item.presence[r.id] && syncedKeys[r.id]?.includes(item.id));
     if (!add.length) return item;
     return {
       ...item,
       presence: {
         ...item.presence,
-        ...Object.fromEntries(add.map(({ repo }) => {
-          const window = item.presence[repo.id];
-          const at = (b: Branch) => (window ? mergePresence(window[b] ?? 'none', 'merged') : 'merged');
-          return [repo.id, Object.fromEntries(repo.branches.map((b) => [b, at(b)]))];
-        })),
+        ...Object.fromEntries(add.map((r) => [r.id, Object.fromEntries(r.branches.map((b) => [b, 'merged']))])),
       },
     };
   });
@@ -90,182 +86,316 @@ export function titleFromRef(headRef: string): string {
   return headRef.replace(/^[^/]*\//, '').replace(/^[A-Z]+-\d+-?/i, '').replace(/[-_]+/g, ' ').trim() || headRef;
 }
 
-// ---------- git ----------
+export type PrKind = 'env' | 'carrier' | 'conflict' | 'revert-chore' | 'dependency' | 'ticket' | 'untracked';
 
-export interface GitOptions {
-  /** Path to the local clone. */
-  path: string
-  repo: RepoId
-  /** Ref prefix for env branches, e.g. 'origin/'. */
-  remote?: string
-  projects?: string[]
+/** PR kind from its head branch (docs/architecture.md "PR kinds"). Ticket vs untracked depends on keys. */
+export function prKind(head: string, envBranches: readonly string[], hasKeys: boolean): PrKind {
+  if (envBranches.includes(head)) return 'env';
+  if (/^(release\/|mini-release|sync\/|chore\/cherry-pick)/i.test(head)) return 'carrier';
+  if (/conflict/i.test(head)) return 'conflict';
+  if (/^(revert-|chore\/pull-)/i.test(head)) return 'revert-chore';
+  if (/^dependabot\//i.test(head)) return 'dependency';
+  return hasKeys ? 'ticket' : 'untracked';
 }
 
-export interface GitSnapshot {
-  heads: RepoHeads
-  items: Item[]
-  /** Ticket keys whose work is already on every env branch (outside the window). */
-  syncedKeys: string[]
+/** Readable reasons a PR breaks the branch convention; empty when it follows it. */
+export function conventionIssues(
+  pr: { head: string, title?: string, number: number },
+  kind: PrKind,
+  projects = DEFAULT_PROJECTS,
+): string[] {
+  const issues: string[] = [];
+  const ref = `#${pr.number} \`${pr.head}\``;
+  const headKeys = extractKeys(pr.head, projects);
+  if (kind === 'untracked') issues.push(`${ref}: branch has no ticket key (use <KEY>-<slug>, or release/, sync/, chore/)`);
+  if (kind === 'ticket' && !new RegExp(`^(${projects.join('|')})-\\d+-[a-z0-9]`, 'i').test(pr.head)) {
+    issues.push(`${ref}: branch should start <KEY>-<slug>`);
+  }
+  if (kind === 'ticket' && pr.title !== undefined) {
+    const titleKey = pr.title.match(/^\s*\[([A-Z]+-\d+)\]/i)?.[1]?.toUpperCase();
+    if (!titleKey) issues.push(`${ref}: title should start [<KEY>]`);
+    else if (headKeys.length && !headKeys.includes(titleKey)) {
+      issues.push(`${ref}: title key ${titleKey} ≠ branch key ${headKeys.join(', ')}`);
+    }
+  }
+  return issues;
+}
+
+/** Root manifests and lockfiles change alongside any work, so they don't decide whether it rides the release path. */
+const NEUTRAL_FILES = new Set(['package.json', 'pnpm-lock.yaml']);
+
+/** Which exempt group a file belongs to, if any. */
+const exemptOf = (file: string, exemptPaths: readonly { prefix: string, exempt: Exempt }[]) => exemptPaths
+  .find((e) => file.startsWith(e.prefix))?.exempt;
+
+// ---------- scan (git) ----------
+
+export interface ScannedPr {
+  number: number;
+  head: string;
+  mergeSha: string;
+  mergedAt: string;
+  /** Most upstream env branch whose first-parent chain holds the merge. */
+  landedOn?: Branch;
+  /** Non-merge commits the PR brought in. */
+  commits: string[];
+  files: string[];
+  /** Branches holding the merge commit and not reverting it. */
+  on: Branch[];
+  revertedOn: Branch[];
+}
+
+export interface ScannedCommit {
+  sha: string;
+  subject: string;
+  date: string;
+  /** Branches holding this commit, minus those where it (or its PR) was reverted. */
+  on: Branch[];
+  /** A revert commit: never counts as a copy of the work it names. */
+  revert?: boolean;
+}
+
+export interface RepoScan {
+  repo: RepoId;
+  heads: RepoHeads;
+  /** Ticket keys in history every branch shares (shipped). */
+  syncedKeys: string[];
+  prs: ScannedPr[];
+  /** Non-merge commits in scope, for work that reached a branch without its PR (cherry-picks, carriers, pushes). */
+  commits: ScannedCommit[];
+}
+
+export interface ScanOptions {
+  path: string;
+  repo: RepoId;
+  /** Ref prefix for env branches, e.g. 'origin/'. */
+  remote?: string;
+  projects?: string[];
 }
 
 const SEP = '\x1F';
+const REC = '\x1E';
 
-export function readGit({ path, repo, remote = 'origin/', projects = DEFAULT_PROJECTS }: GitOptions): GitSnapshot {
-  const BRANCHES: readonly Branch[] = REPOS.find((r) => r.id === repo)!.branches;
+export function scanRepo({ path, repo, remote = 'origin/', projects = DEFAULT_PROJECTS }: ScanOptions): RepoScan {
+  const branches: readonly Branch[] = REPOS.find((r) => r.id === repo)!.branches;
   const git = (...args: string[]) => execFileSync('git', ['-C', path, ...args], {
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
   }).trim();
   const lines = (...args: string[]) => git(...args).split('\n').filter(Boolean);
-  const refs = BRANCHES.map(b => remote + b);
+  const refs = branches.map((b) => remote + b);
 
-  const heads = Object.fromEntries(
-    BRANCHES.map((b, i) => [b, git('rev-parse', '--short', refs[i]!)]),
-  ) as RepoHeads;
+  const heads = Object.fromEntries(branches.map((b, i) => [b, git('rev-parse', '--short', refs[i]!)])) as RepoHeads;
 
-  // Window: reachable from some env branch but not from all of them.
-  const notInAll = lines('merge-base', '--octopus', '--all', ...refs).map(sha => `^${sha}`);
-  const window = [...refs, ...notInAll];
+  // Scope: on some env branch but not on all of them.
+  const bases = lines('merge-base', '--octopus', '--all', ...refs);
+  const notInAll = bases.map((sha) => `^${sha}`);
+  const scope = [...refs, ...notInAll];
 
-  // Keys in history every branch shares: those tickets are fully synced, so they never enter the window.
   // ponytail: scans all shared history's subjects (~0.2s on spacetoco-app); bound it with --since if it grows slow.
-  const bases = notInAll.map((ref) => ref.slice(1));
-  const syncedKeys = new Set(
-    lines('log', '--format=%s', ...bases).map((s) => extractKey(s, projects)).filter(Boolean) as string[],
-  );
+  const syncedKeys = [...new Set(lines('log', '--format=%s', ...bases).flatMap((s) => extractKeys(s, projects)))];
 
-  // Non-merge commits in the window with their subjects, oldest first.
-  const subjects = new Map<string, string>();
-  for (const line of lines('log', '--no-merges', '--reverse', '--date-order', `--format=%H${SEP}%s`, ...window)) {
-    const [sha, subject] = line.split(SEP);
-    subjects.set(sha!, subject!);
-  }
-
-  // Which window commits each branch contains by ancestry.
-  const reachable = new Map<Branch, Set<string>>();
-  for (const [i, b] of BRANCHES.entries()) reachable.set(b, new Set(lines('rev-list', '--no-merges', refs[i]!, ...notInAll)));
-
-  // Patch-ids, to spot cherry-picks. Subjects are a fallback for picks whose diff changed in conflict resolution.
-  const patchIdOf = new Map<string, string>();
-  if (subjects.size) {
-    const patches = execFileSync(
-      'git',
-      ['-C', path, 'log', '--no-merges', '-p', '--format=commit %H', ...window],
-      { maxBuffer: 1024 * 1024 * 1024 },
-    );
-    const ids = execFileSync('git', ['-C', path, 'patch-id', '--stable'], {
-      input: patches,
-      encoding: 'utf8',
-      maxBuffer: 256 * 1024 * 1024,
-    });
-    for (const line of ids.split('\n').filter(Boolean)) {
-      const [patchId, sha] = line.split(' ');
-      patchIdOf.set(sha!, patchId!);
-    }
-  }
-
-  // Group copies of the same change: same patch-id, or same keyed subject (a pick whose diff changed in conflict
-  // resolution). Generic subjects ("fix lint") are not used, they would join unrelated commits.
-  const changeOf = new Map<string, string>();
-  const changeBy = new Map<string, string>();
-  for (const [sha, subject] of subjects) {
-    const keys = [patchIdOf.get(sha), extractKey(subject, projects) && `subject:${subject}`].filter(Boolean) as string[];
-    const change = keys.map(k => changeBy.get(k)).find(Boolean) ?? sha;
-    changeOf.set(sha, change);
-    for (const k of keys) if (!changeBy.has(k)) changeBy.set(k, change);
-  }
-  const copies = new Map<string, string[]>();
-  for (const [sha, change] of changeOf) copies.set(change, [...(copies.get(change) ?? []), sha]);
+  // Every in-scope commit each branch holds (merges included).
+  const holds = new Map<Branch, Set<string>>(branches.map((b, i) => [b, new Set(lines('rev-list', refs[i]!, ...notInAll))]));
 
   // The env branch a merge landed on: the most upstream branch whose first-parent chain contains it.
   const landedOn = new Map<string, Branch>();
-  for (const [i, b] of BRANCHES.entries()) {
+  for (const [i, b] of branches.entries()) {
     for (const sha of lines('rev-list', '--first-parent', '--merges', refs[i]!, ...notInAll)) {
       if (!landedOn.has(sha)) landedOn.set(sha, b);
     }
   }
 
-  // PR merges in the window, oldest first. Merges whose head is an env branch (release/sync PRs) carry other PRs' commits, so skip them.
-  const prOfCommit = new Map<string, PullRequest[]>();
-  for (const line of lines('log', '--merges', '--reverse', `--format=%H${SEP}%cI${SEP}%s`, ...window)) {
-    const [sha, date, subject] = line.split(SEP);
-    const pr = parsePrMerge(subject!);
-    if (!pr || (BRANCHES as readonly string[]).includes(pr.headRef)) continue;
-    const base = landedOn.get(sha!);
-    if (!base) continue;
-    const entry: PullRequest = {
-      repo,
-      ...pr,
-      base,
+  // Reverts: 'This reverts commit <sha>' in any in-scope commit. A revert that is itself reverted on a branch is inactive.
+  const revertsOf = new Map<string, string>(); // revert commit → reverted commit
+  for (const record of git('log', `--format=%H${SEP}%B${REC}`, ...scope).split(REC)) {
+    const [sha, body] = record.trim().split(SEP);
+    const target = body?.match(/This reverts commit ([0-9a-f]{7,40})/)?.[1];
+    if (sha && target) revertsOf.set(sha, git('rev-parse', target));
+  }
+  const revertedOnBranch = (target: string, b: Branch, depth = 0): boolean => [...revertsOf]
+    .some(([revert, t]) => t === target && holds.get(b)!.has(revert) && (depth > 5 || !revertedOnBranch(revert, b, depth + 1)));
+
+  const prs: ScannedPr[] = [];
+  for (const line of lines('log', '--merges', '--reverse', `--format=%H${SEP}%cI${SEP}%s`, ...scope)) {
+    const [sha, date, subject] = line.split(SEP) as [string, string, string];
+    const pr = parsePrMerge(subject);
+    if (!pr) continue;
+    const commits = lines('rev-list', '--no-merges', `${sha}^1..${sha}^2`);
+    const reverted = (b: Branch) => revertedOnBranch(sha, b) || commits.some((c) => revertedOnBranch(c, b));
+    const revertedOn = branches.filter((b) => holds.get(b)!.has(sha) && reverted(b));
+    prs.push({
+      number: pr.number,
+      head: pr.headRef,
+      mergeSha: sha,
       mergedAt: date,
-    };
-    for (const commit of lines('rev-list', '--no-merges', `${sha}^1..${sha}^2`)) {
-      if (!subjects.has(commit)) continue;
-      const prs = prOfCommit.get(commit) ?? [];
-      if (!prs.some(p => p.number === pr.number)) prs.push(entry);
-      prOfCommit.set(commit, prs);
-    }
+      landedOn: landedOn.get(sha),
+      commits,
+      files: lines('diff', '--name-only', `${sha}^1`, sha),
+      on: branches.filter((b) => holds.get(b)!.has(sha) && !revertedOn.includes(b)),
+      revertedOn,
+    });
   }
 
-  // Group commits into items: keyed PR head ref → subject key → oldest PR → the bare commit.
-  const groups = new Map<string, { kind: Item['kind'], title: string, commits: Set<string>, prs: Map<number, PullRequest> }>();
-  const addTo = (id: string, kind: Item['kind'], title: string, commit: string, prs: PullRequest[]) => {
-    const group = groups.get(id) ?? {
-      kind,
-      title,
-      commits: new Set(),
-      prs: new Map(),
-    };
-    group.commits.add(commit);
-    for (const pr of prs) group.prs.set(pr.number, pr);
-    groups.set(id, group);
-  };
-  for (const [commit, subject] of subjects) {
-    const prs = prOfCommit.get(commit) ?? [];
-    const keyed = prs.filter(pr => extractKey(pr.headRef, projects));
-    if (keyed.length) {
-      for (const pr of keyed) addTo(extractKey(pr.headRef, projects)!, 'ticket', titleFromRef(pr.headRef), commit, [pr]);
-      continue;
-    }
-    const key = extractKey(subject, projects);
-    if (key) addTo(key, 'ticket', subject.replace(/^\[[^\]]*\]\s*/, ''), commit, prs);
-    else if (prs[0]) addTo(`${repo}-pr-${prs[0].number}`, 'untracked', prs[0].headRef, commit, [prs[0]]);
-    else addTo(`${repo}-commit-${commit.slice(0, 7)}`, 'untracked', subject, commit, []);
-  }
-
-  // A change is 'merged' on a branch holding its original (the oldest copy that came through a PR, else the
-  // oldest copy), 'picked' if the branch only holds another copy.
-  const originalOf = (change: string) => {
-    const all = copies.get(change)!;
-    return all.find(sha => prOfCommit.has(sha)) ?? all[0]!;
-  };
-  const presenceOf = (change: string, b: Branch): 'merged' | 'picked' | 'missing' => {
-    const on = reachable.get(b)!;
-    if (on.has(originalOf(change))) return 'merged';
-    return copies.get(change)!.some(sha => on.has(sha)) ? 'picked' : 'missing';
-  };
-
-  // Only window commits count here; work already on every branch is folded in by key in addSyncedPresence.
-  const items: Item[] = [...groups].map(([id, g]) => {
-    const prs = [...g.prs.values()];
-    const changes = [...new Set([...g.commits].map(c => changeOf.get(c)!))];
+  const revertedWithPr = new Map<string, Branch[]>();
+  for (const pr of prs) for (const c of pr.commits) revertedWithPr.set(c, [...revertedWithPr.get(c) ?? [], ...pr.revertedOn]);
+  const commits: ScannedCommit[] = lines('log', '--no-merges', `--format=%H${SEP}%cI${SEP}%s`, ...scope).map((line) => {
+    const [sha, date, subject] = line.split(SEP) as [string, string, string];
     return {
-      id,
-      kind: g.kind,
-      title: g.title,
-      prs,
-      presence: {
-        [repo]: Object.fromEntries(BRANCHES.map((b) => [b, combinePresence(changes.map((c) => presenceOf(c, b)))])),
-      },
-      hotfix: prs.some(pr => pr.base !== 'develop'),
-      // Set by computeWarnings (shared/utils/verdicts.ts), the single owner of warnings.
-      warnings: [],
+      sha,
+      subject,
+      date,
+      on: branches.filter((b) => holds.get(b)!.has(sha) && !revertedWithPr.get(sha)?.includes(b) && !revertedOnBranch(sha, b)),
+      ...(revertsOf.has(sha) && { revert: true }),
     };
   });
 
   return {
+    repo,
     heads,
-    items,
-    syncedKeys: [...syncedKeys],
+    syncedKeys,
+    prs,
+    commits,
   };
+}
+
+// ---------- build (pure) ----------
+
+export interface PrDetail {
+  title?: string;
+  author?: string;
+  /** GitHub's base branch, when known; otherwise where the merge landed. */
+  base?: string;
+}
+
+interface Classified {
+  pr: ScannedPr;
+  kind: PrKind;
+  keys: string[];
+  entry: PullRequest;
+}
+
+const presenceRow = (branches: readonly Branch[], on: Branch[]) => Object.fromEntries(
+  branches.map((b) => [b, on.includes(b) ? 'merged' : 'none']),
+) as RepoPresence;
+
+export function buildItems(scan: RepoScan, details: Map<number, PrDetail>, projects = DEFAULT_PROJECTS): Item[] {
+  const repoDef = REPOS.find((r) => r.id === scan.repo)!;
+  const branches: readonly Branch[] = repoDef.branches;
+  const synced = new Set(scan.syncedKeys);
+  const time = (iso: string) => Date.parse(iso);
+  const subjectOf = new Map(scan.commits.map((c) => [c.sha, c.subject]));
+
+  const classified: Classified[] = scan.prs.map((pr) => {
+    const detail = details.get(pr.number);
+    let keys = [...new Set([...extractKeys(detail?.title ?? '', projects), ...extractKeys(pr.head, projects)])];
+    let kind = prKind(pr.head, branches, keys.length > 0);
+    // A PR with no key in title or branch still belongs to the tickets its commit messages name.
+    const subjectKeys = [...new Set(pr.commits.flatMap((c) => extractKeys(subjectOf.get(c) ?? '', projects)))];
+    if (kind === 'untracked' && subjectKeys.length) {
+      keys = subjectKeys;
+      kind = 'ticket';
+    }
+    const githubBase = (branches as readonly string[]).includes(detail?.base ?? '') ? detail!.base as Branch : undefined;
+    const base = githubBase ?? pr.landedOn ?? 'develop';
+    return {
+      pr,
+      kind,
+      keys,
+      entry: {
+        repo: scan.repo,
+        number: pr.number,
+        headRef: pr.head,
+        base,
+        mergedAt: pr.mergedAt,
+        on: pr.on,
+        ...(pr.revertedOn.length && { revertedOn: pr.revertedOn }),
+        ...(detail?.title && { title: detail.title }),
+        ...(detail?.author && { author: detail.author }),
+      },
+    };
+  });
+
+  const items: Item[] = [];
+  const ticketPrs = classified.filter((c) => c.kind === 'ticket');
+  const ticketCommits = new Set(ticketPrs.flatMap((c) => c.pr.commits));
+  // Commits that reached branches outside their ticket's own PRs: cherry-picks, carrier branches, direct pushes.
+  const copies = scan.commits.filter((c) => !ticketCommits.has(c.sha) && !c.revert);
+  const keys = new Set([...ticketPrs.flatMap((c) => c.keys), ...copies.flatMap((c) => extractKeys(c.subject, projects))]);
+
+  for (const key of keys) {
+    const own = ticketPrs.filter((c) => c.keys.includes(key));
+    const keyCopies = copies.filter((c) => extractKeys(c.subject, projects).includes(key));
+    const presence = Object.fromEntries(branches.map((b): [Branch, Presence] => {
+      const here = own.filter((c) => c.pr.on.includes(b));
+      if (!here.length && !synced.has(key)) return [b, keyCopies.some((c) => c.on.includes(b)) ? 'picked' : 'none'];
+      // Follow-up: a later PR of this ticket, not a twin of one already here, that hasn't reached b.
+      const arrived = synced.has(key) ? -Infinity : Math.min(...here.map((c) => time(c.pr.mergedAt)));
+      const followUpMissing = own.some((c) => !c.pr.on.includes(b)
+        && time(c.pr.mergedAt) > arrived + TWIN_MS
+        && !here.some((h) => Math.abs(time(h.pr.mergedAt) - time(c.pr.mergedAt)) <= TWIN_MS));
+      return [b, followUpMissing ? 'partial' : 'merged'];
+    })) as RepoPresence;
+
+    const files = own.flatMap((c) => c.pr.files).filter((f) => !NEUTRAL_FILES.has(f));
+    const groups = files.map((f) => exemptOf(f, repoDef.exemptPaths));
+    const exempt = own.length && files.length && groups.every(Boolean)
+      ? EXEMPT_ORDER.find((e) => groups.includes(e))
+      : undefined;
+    const issues = own.flatMap((c) => conventionIssues({
+      head: c.pr.head,
+      title: c.entry.title,
+      number: c.pr.number,
+    }, c.kind, projects));
+    const first = own[0];
+    items.push({
+      id: key,
+      kind: 'ticket',
+      title: first ? first.entry.title?.replace(/^\s*\[[^\]]*\]\s*/, '') || titleFromRef(first.pr.head)
+        : keyCopies[0]!.subject.replace(/^\s*\[[^\]]*\]\s*/, ''),
+      prs: own.map((c) => c.entry),
+      presence: { [scan.repo]: presence },
+      hotfix: own.some((c) => c.entry.base !== 'develop'),
+      warnings: [],
+      ...(exempt && { exempt }),
+      ...(issues.length && { conventionIssues: issues }),
+    });
+  }
+
+  // Untracked work and dependency bumps: one item per PR.
+  for (const c of classified.filter((x) => x.kind === 'untracked' || x.kind === 'dependency')) {
+    const issues = conventionIssues({
+      head: c.pr.head,
+      title: c.entry.title,
+      number: c.pr.number,
+    }, c.kind, projects);
+    items.push({
+      id: `${scan.repo}-pr-${c.pr.number}`,
+      kind: c.kind === 'dependency' ? 'dependency' : 'untracked',
+      title: c.entry.title ?? c.pr.head,
+      prs: [c.entry],
+      presence: { [scan.repo]: presenceRow(branches, c.pr.on) },
+      hotfix: c.entry.base !== 'develop',
+      warnings: [],
+      ...(issues.length && { conventionIssues: issues }),
+    });
+  }
+
+  // Commits pushed straight to a branch, with no PR and no ticket key: untracked, one item each.
+  const prCommits = new Set(classified.flatMap((c) => c.pr.commits));
+  const pushed = scan.commits
+    .filter((x) => !prCommits.has(x.sha) && !x.revert && !extractKeys(x.subject, projects).length && x.on.length);
+  for (const c of pushed) {
+    items.push({
+      id: `${scan.repo}-commit-${c.sha.slice(0, 7)}`,
+      kind: 'untracked',
+      title: c.subject,
+      prs: [],
+      presence: { [scan.repo]: presenceRow(branches, c.on) },
+      hotfix: false,
+      warnings: [],
+    });
+  }
+
+  return items;
 }

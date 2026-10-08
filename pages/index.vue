@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Item, Warning } from '~~/shared/types/snapshot';
+import type { Exempt, Item, Warning } from '~~/shared/types/snapshot';
 import { REPOS } from '~~/shared/utils/snapshot';
 
 const store = useSnapshotStore();
@@ -14,6 +14,10 @@ const PROBLEMS: Partial<Record<Warning, { text: string, color: string }>> = {
     text: 'Extra on staging',
     color: 'signal-danger',
   },
+  'not-tested': {
+    text: 'Not tested on dev',
+    color: 'signal-danger',
+  },
   'not-on-develop': {
     text: 'Not on develop',
     color: 'signal-caution',
@@ -22,15 +26,25 @@ const PROBLEMS: Partial<Record<Warning, { text: string, color: string }>> = {
     text: 'Missed release',
     color: 'signal-caution',
   },
+  'needs-fixversion': {
+    text: 'Needs a fixVersion',
+    color: 'signal-caution',
+  },
 };
 /** [label, tooltip] */
 const NOTES: Partial<Record<Warning, [string, string]>> = {
   'status-mismatch': ['Jira status', 'Jira status disagrees with the branches'],
-  'done-no-fixversion': ['No fixVersion', 'Done with no fixVersion'],
   'invalid-key': ['Unknown key', 'Key not found in Jira'],
   'untracked': ['No ticket', 'No ticket key on the branch, commits or PR title'],
+  'follow-up': ['Follow-up behind', 'A later PR for this ticket hasn\'t reached every branch the ticket is on'],
 };
-type Flaggable = Pick<Item, 'warnings' | 'presence' | 'jira'>;
+/** Off the release path: [label, tooltip]. */
+const EXEMPT_NOTES: Record<Exempt, [string, string]> = {
+  'released-on-develop': ['Infra: live from develop', 'Only changes deployments/, which is applied from develop'],
+  'never-ships': ['Tooling: never ships', 'Only changes tests or CI'],
+  'not-live': ['Backend: not live yet', 'Only changes packages/backend, the new monorepo backend'],
+};
+type Flaggable = Pick<Item, 'warnings' | 'presence' | 'jira' | 'exempt' | 'conventionIssues'>;
 const GAP_FLAGS = {
   none: {
     text: 'Released, not on main',
@@ -51,9 +65,11 @@ const problemsOf = (item: Flaggable) => {
 // On main but not Released is Jira housekeeping: counted in the group header and hinted on the status,
 // not flagged per row.
 const notMarkedReleased = (item: Flaggable) => item.warnings.includes('status-mismatch') && !releasedGap(item);
-const notesOf = (item: Flaggable): [string, string][] => item.warnings
-  .filter((w) => w !== 'status-mismatch' && NOTES[w])
-  .map((w) => NOTES[w]!);
+const notesOf = (item: Flaggable): [string, string][] => [
+  ...(item.exempt ? [EXEMPT_NOTES[item.exempt]] : []),
+  ...item.warnings.filter((w) => w !== 'status-mismatch' && NOTES[w]).map((w) => NOTES[w]!),
+  ...(item.conventionIssues?.length ? [['Branch convention', item.conventionIssues.join('\n')] as [string, string]] : []),
+];
 /** Problems first (coloured), then housekeeping notes (muted). One shows; the rest are in the tooltip. */
 const flagsOf = (item: Flaggable) => [
   ...problemsOf(item).map((p) => ({
@@ -134,6 +150,14 @@ const groupBy = [{
   key: 'groupKey',
   order: 'asc' as const,
 }];
+/** Banner when Jira's earliest unreleased version has in fact shipped and the board moved on. */
+const shippedNotice = computed(() => {
+  const shipped = store.snapshot?.shippedUnmarked ?? [];
+  if (!shipped.length) return '';
+  const one = shipped.length === 1;
+  return `${shipped.join(', ')} ${one ? 'looks' : 'look'} shipped: most of its tickets are on main, but Jira hasn't marked `
+    + `${one ? 'it' : 'them'} released. Showing ${store.snapshot?.currentRelease ?? 'no release'} as the current release.`;
+});
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 const groupLabel = (key: string) => key.split('|').slice(1).join('|');
 /** '(9) RELEASED' → 'Released': Jira mixes numbering and case. Only shouting is recased, so 'In QA' survives. */
@@ -159,6 +183,14 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
     />
     <template v-else-if="store.snapshot">
       <board-toolbar />
+      <v-alert
+        v-if="shippedNotice"
+        :text="shippedNotice"
+        class="board__shipped"
+        density="compact"
+        type="warning"
+        variant="tonal"
+      />
       <div class="board__header">
         <transit-map />
         <board-summary />
@@ -298,6 +330,7 @@ const rowProps = ({ item }: { item: { state: string } }) => ({ class: `row row--
 }
 
 .board__table { background: transparent; }
+.board__shipped { margin-top: 12px; }
 
 /* One header band: the map, with the problem counts and legend in the right-hand gutter. */
 .board__header {

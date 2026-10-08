@@ -1,4 +1,4 @@
-import type { PRESENCES, REPOS, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../utils/snapshot';
+import type { EXEMPT_ORDER, PRESENCES, REPOS, STATUS_CATEGORIES, VERDICTS, WARNINGS } from '../utils/snapshot';
 
 export type RepoId = typeof REPOS[number]['id'];
 /** Any env branch in any repo. */
@@ -7,6 +7,8 @@ export type Presence = typeof PRESENCES[number];
 export type StatusCategory = typeof STATUS_CATEGORIES[number];
 export type Verdict = typeof VERDICTS[number];
 export type Warning = typeof WARNINGS[number];
+/** Why a ticket is off the release path. */
+export type Exempt = typeof EXEMPT_ORDER[number];
 
 /** Presence on each of one repo's branches. */
 export type RepoPresence = Partial<Record<Branch, Presence>>;
@@ -26,6 +28,10 @@ export interface PullRequest {
   title?: string
   author?: string
   mergedAt?: string
+  /** Branches this PR's merge commit is on (and not reverted). */
+  on?: Branch[]
+  /** Branches where this PR was merged and then reverted. */
+  revertedOn?: Branch[]
 }
 
 export interface JiraInfo {
@@ -39,7 +45,8 @@ export interface JiraInfo {
 export interface Item {
   /** Ticket key ('DEV-1314'), or '<repo>-pr-<number>' / '<repo>-commit-<sha7>' for untracked work. */
   id: string
-  kind: 'ticket' | 'untracked'
+  /** 'dependency' = dependabot bumps: shown, never blocking. */
+  kind: 'ticket' | 'untracked' | 'dependency'
   title: string
   jira?: JiraInfo
   invalidKey?: boolean
@@ -48,6 +55,10 @@ export interface Item {
   presence: Partial<Record<RepoId, RepoPresence>>
   /** Some PR merged straight into a branch other than develop. */
   hotfix: boolean
+  /** Off the release path: every PR only changes exempt paths. */
+  exempt?: Exempt
+  /** Branch-convention breaks across the item's PRs, as readable reasons. */
+  conventionIssues?: string[]
   warnings: Warning[]
 }
 
@@ -58,7 +69,9 @@ export interface Hop {
   verdict: Verdict
   /** On `from`, missing on `to`. */
   aheadIds: string[]
-  /** Subset of aheadIds not ready for this hop: extras coming along to staging, or cherry-pick-outs before main. */
+  /** Release hops: wanted and ahead, so they need to go up. */
+  bringUpIds: string[]
+  /** Release hops: ahead but not wanted. develop→staging: would wrongly come along; staging→main: hold back. */
   blockingIds: string[]
   /** On `to`, missing on `from`. */
   backSyncIds: string[]
@@ -71,6 +84,8 @@ export interface Snapshot {
   heads: Partial<Record<RepoId, RepoHeads>>
   releases: Release[]
   currentRelease: string | null
+  /** Unreleased in Jira, but every ticket with code is on main: shipped and not marked released. */
+  shippedUnmarked?: string[]
   items: Item[]
   hops: Hop[]
 }

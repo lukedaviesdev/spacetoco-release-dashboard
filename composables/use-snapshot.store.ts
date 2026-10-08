@@ -6,7 +6,7 @@ import { judge } from '~~/shared/utils/verdicts';
 /** Row colour, most serious first (docs/design.md "Well colour"). */
 export type RowState = 'danger' | 'return' | 'caution' | 'ink';
 
-export type HopList = 'ahead' | 'blocking' | 'back';
+export type HopList = 'ahead' | 'bringUp' | 'blocking' | 'back';
 
 export interface Group {
   /** Sorts groups (letters, so the table's numeric-aware sort can't reorder them): attention, release, other unreleased, rolling, shipped, no fixVersion, untracked. */
@@ -28,17 +28,20 @@ export const releasedGap = (item: Pick<Item, 'warnings' | 'presence' | 'jira'>):
 };
 
 /**
- * - danger: on staging but outside the release, or Jira says Released and none of it is on main
+ * - danger: on staging but shouldn't be (outside the release, or not tested on dev), or Jira says Released and none
+ *   of it is on main
  * - return: needs a back-sync (on a downstream branch, missing upstream)
  * - caution: would come along as an extra into staging, missed its release, or in the release but not on develop
  */
 export const rowState = (item: Item, hops: Hop[]): RowState => {
   const w = item.warnings;
   const gap = releasedGap(item);
-  if (w.includes('extra-on-staging') || gap === 'none') return 'danger';
+  if (item.exempt) return 'ink';
+  if (w.includes('extra-on-staging') || w.includes('not-tested') || gap === 'none') return 'danger';
   if (hops.some((h) => h.backSyncIds.includes(item.id))) return 'return';
   const extraIntoStaging = hops.some((h) => h.from === 'develop' && h.blockingIds.includes(item.id));
-  if (extraIntoStaging || gap === 'partial' || w.includes('missed-release') || w.includes('not-on-develop')) return 'caution';
+  const caution = ['missed-release', 'not-on-develop', 'needs-fixversion'] as const;
+  if (extraIntoStaging || gap === 'partial' || caution.some((c) => w.includes(c))) return 'caution';
   return 'ink';
 };
 
@@ -50,7 +53,11 @@ export const ATTENTION: Group = {
 
 export const groupOf = (item: Item, release: string | null, releases: Release[]): Group => {
   const versions = item.jira?.fixVersions ?? [];
-  if (item.kind === 'untracked') return {
+  if (item.exempt) return {
+    key: 'h',
+    label: 'Off the release path',
+  };
+  if (item.kind === 'untracked' || item.kind === 'dependency') return {
     key: 'g',
     label: 'Untracked',
   };
@@ -98,6 +105,7 @@ export const filterItems = <T extends Item & { state: RowState }>(items: T[], ho
     const hop = hops.find((h) => h.repo === repo && h.from === from && h.to === to);
     const ids = hop ? {
       ahead: hop.aheadIds,
+      bringUp: hop.bringUpIds,
       blocking: hop.blockingIds,
       back: hop.backSyncIds,
     }[list] : [];
@@ -161,7 +169,12 @@ export const useSnapshotStore = defineStore('snapshot', () => {
 
   /** Verdicts and warnings re-judged for the selected release. */
   const judged = computed(() => (snapshot.value
-    ? judge(snapshot.value.items, release.value, snapshot.value.releases)
+    ? judge(
+      snapshot.value.items,
+      release.value,
+      snapshot.value.releases,
+      snapshot.value.shippedUnmarked,
+    )
     : {
       items: [] as Item[],
       hops: [] as Hop[],

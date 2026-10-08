@@ -9,6 +9,7 @@ const hop = (over: Partial<Hop>): Hop => ({
   to: 'staging',
   verdict: 'in-sync',
   aheadIds: [],
+  bringUpIds: [],
   blockingIds: [],
   backSyncIds: [],
   ...over,
@@ -43,20 +44,33 @@ describe('layoutTransit', () => {
 
 describe('signalOf', () => {
   it.each([
-    ['cherry-pick', {
-      verdict: 'cherry-pick',
+    ['hold-back', {
+      verdict: 'hold-back',
       aheadIds: ['A', 'B'],
       blockingIds: ['B'],
+      bringUpIds: ['A'],
     }, 'danger', 'hold back 1', 'blocking', 1],
-    ['merge-with-extras', {
-      verdict: 'merge-with-extras',
+    ['not-safe', {
+      verdict: 'not-safe',
       aheadIds: ['A', 'B'],
-      blockingIds: ['A', 'B'],
-    }, 'caution', '2 extras', 'blocking', 2],
-    ['clean', {
-      verdict: 'clean',
+      blockingIds: ['A'],
+      bringUpIds: ['B'],
+    },
+    'caution', '1 not ready · 1 to bring up', 'blocking', 1],
+    ['not-safe, nothing to bring up', {
+      verdict: 'not-safe',
       aheadIds: ['A'],
-    }, 'clear', 'clean · 1', 'ahead', 1],
+      blockingIds: ['A'],
+    }, 'caution', '1 not ready', 'blocking', 1],
+    ['safe', {
+      verdict: 'safe',
+      aheadIds: ['A', 'B'],
+      bringUpIds: ['A', 'B'],
+    }, 'clear', 'safe · 2 to bring up', 'bringUp', 2],
+    ['safe, follow-ups only', {
+      verdict: 'safe',
+      aheadIds: ['A'],
+    }, 'clear', 'safe', 'ahead', 1],
     ['sync', {
       verdict: 'sync',
       aheadIds: ['A', 'B', 'C'],
@@ -73,13 +87,13 @@ describe('signalOf', () => {
 
   it('describes the hop in a sentence', () => {
     expect(signalOf(hop({
-      verdict: 'cherry-pick',
+      verdict: 'hold-back',
       from: 'staging',
       to: 'main',
       aheadIds: ['A'],
       blockingIds: ['A'],
     })).description)
-      .toBe('app staging → main: cherry-pick. 1 ticket on staging must not go to main.');
+      .toBe('app staging → main: not safe to merge. 1 ticket on staging must not go to main.');
   });
 });
 

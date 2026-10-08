@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { Item, JiraInfo, Snapshot } from '../types/snapshot';
-import { computeHops, computeWarnings, judge } from './verdicts';
+import { computeHops, computeWarnings, judge, pickCurrentRelease } from './verdicts';
 
 const R = '2.0.0';
 
@@ -39,68 +39,51 @@ const item = (id: string, app: string, over: Omit<Partial<Item>, 'jira'> & { jir
 const hop = (items: Item[], from: string, to: string, repo = 'app') => computeHops(items, R)
   .find((h) => h.repo === repo && h.from === from && h.to === to)!;
 
-describe('release hops (develop→staging, staging→main)', () => {
+describe('release hops: is a whole-branch merge safe?', () => {
+  const notDone = { jira: { statusCategory: 'indeterminate' as const } };
   it.each([
     ['nothing ahead', [item('A', 'mmm...')], 'in-sync', [], []],
-    ['ahead and ready', [item('A', 'm.....')], 'clean', ['A'], []],
-    ['ahead and in the release but not Done yet (it goes to staging to be tested)', [item('A', 'm.....', {
-      jira: { statusCategory: 'indeterminate' },
-    })], 'clean', ['A'], []],
-    ['ahead but in another release', [item('A', 'm.....', {
-      jira: { fixVersions: ['3.0.0'] },
-    })], 'merge-with-extras', ['A'], ['A']],
-    ['ahead with no Jira (untracked)', [item('A', 'm.....', {
-      kind: 'untracked',
+    ['everything ahead is wanted (in the release and Done)', [item('A', 'm.....')], 'safe', ['A'], []],
+    ['in the release but not Done (not through QA on develop)', [item('A', 'm.....', notDone)], 'not-safe', [], ['A']],
+    ['in another release', [item('A', 'm.....', { jira: { fixVersions: ['3.0.0'] } })], 'not-safe', [], ['A']],
+    ['untracked work always blocks', [item('A', 'm.....', {
       jira: null,
-    })], 'merge-with-extras', ['A'], ['A']],
-    ['partial on develop is still ahead of none', [item('A', 'h.....')], 'clean', ['A'], []],
-    ['full on develop is ahead of partial on staging', [item('A', 'mh....')], 'clean', ['A'], []],
-    ['two partials are not ahead', [item('A', 'hh....')], 'in-sync', [], []],
+      kind: 'untracked',
+    })], 'not-safe', [], ['A']],
+    ['Rolling Hotfixes and Done is wanted', [item('A', 'm.....', {
+      jira: { fixVersions: ['Rolling Hotfixes'] },
+    })], 'safe', ['A'], []],
+    ['a follow-up behind on staging never decides', [item('A', 'mh....', {
+      jira: { fixVersions: ['1.0.0'] },
+    })], 'safe', [], []],
+    ['a dependency bump never decides', [item('A', 'm.....', {
+      jira: null,
+      kind: 'dependency',
+    })], 'safe', [], []],
+    ['exempt work is left out entirely', [item('A', 'm.....', {
+      exempt: 'released-on-develop',
+      jira: { fixVersions: [] },
+    })], 'in-sync', [], []],
     ['picked counts as present', [item('A', 'mp....')], 'in-sync', [], []],
-  ] as const)('%s', (_, items, verdict, ahead, blocking) => {
+  ] as const)('develop→staging: %s', (_, items, verdict, bringUp, blocking) => {
     const h = hop([...items], 'develop', 'staging');
     expect(h.verdict).toBe(verdict);
-    expect(h.aheadIds).toEqual(ahead);
+    expect(h.bringUpIds).toEqual(bringUp);
     expect(h.blockingIds).toEqual(blocking);
   });
 
-  it('needs Done to go from staging to main: anything else on staging gets cherry-picked out', () => {
-    const notDone = item('A', 'mm....', { jira: { statusCategory: 'indeterminate' } });
-    expect(hop([notDone], 'staging', 'main')).toMatchObject({
-      verdict: 'cherry-pick',
-      blockingIds: ['A'],
-    });
-    expect(hop([item('B', 'mm....')], 'staging', 'main').verdict).toBe('clean');
-  });
-
-  it('lets Rolling Hotfixes through any release, needing Done only on the way to main', () => {
-    const rolling = (statusCategory: JiraInfo['statusCategory']) => item('A', 'm.....', {
-      jira: {
-        fixVersions: ['Rolling Hotfixes'],
-        statusCategory,
-      },
-    });
-    expect(hop([rolling('indeterminate')], 'develop', 'staging').verdict).toBe('clean');
-    expect(hop([{
-      ...rolling('indeterminate'),
-      presence: {
-        app: {
-          develop: 'merged',
-          staging: 'merged',
-          main: 'none',
-        },
-      },
-    }], 'staging', 'main').verdict)
-      .toBe('cherry-pick');
-  });
-
-  it('lists ready and blocking items together when mixed', () => {
+  it('staging→main: holds back what is not wanted and lists what can go', () => {
     const h = hop([item('A', 'mm....'), item('B', 'mm....', { jira: { statusCategory: 'new' } })], 'staging', 'main');
     expect(h).toMatchObject({
-      verdict: 'cherry-pick',
-      aheadIds: ['A', 'B'],
+      verdict: 'hold-back',
+      bringUpIds: ['A'],
       blockingIds: ['B'],
     });
+    expect(hop([item('A', 'mm....')], 'staging', 'main').verdict).toBe('safe');
+  });
+
+  it('judges nothing as wanted without a release', () => {
+    expect(computeHops([item('A', 'm.....')], null)[0]!.verdict).toBe('not-safe');
   });
 });
 
@@ -110,6 +93,7 @@ describe('sync hops (main→demo, main→main-uk, main-uk→demo-uk)', () => {
     expect(hop(items, 'main', 'demo')).toMatchObject({
       verdict: 'sync',
       aheadIds: ['A'],
+      bringUpIds: [],
       blockingIds: [],
     });
     expect(hop(items, 'main-uk', 'demo-uk').verdict).toBe('in-sync');
@@ -119,9 +103,8 @@ describe('sync hops (main→demo, main→main-uk, main-uk→demo-uk)', () => {
 describe('back-sync', () => {
   it('reports work downstream that upstream lacks, alongside the forward verdict', () => {
     const h = hop([item('HOTFIX', '..mmmm'), item('A', 'mm....')], 'staging', 'main');
-    expect(h.verdict).toBe('clean');
+    expect(h.verdict).toBe('safe');
     expect(h.backSyncIds).toEqual(['HOTFIX']);
-    expect(hop([item('HOTFIX', '..mmmm')], 'develop', 'staging').backSyncIds).toEqual([]);
   });
 });
 
@@ -138,18 +121,14 @@ describe('repos', () => {
       },
     };
     expect(hop([backend, item('APP', 'mmm...')], 'develop', 'staging', 'api')).toMatchObject({
-      verdict: 'clean',
-      aheadIds: ['API'],
+      verdict: 'safe',
+      bringUpIds: ['API'],
     });
     expect(hop([backend], 'develop', 'staging').verdict).toBe('in-sync');
     expect(computeHops([], R).map((h) => `${h.repo}:${h.from}→${h.to}`)).toEqual([
       'app:develop→staging', 'app:staging→main', 'app:main→demo', 'app:main→main-uk', 'app:main-uk→demo-uk',
       'api:develop→staging', 'api:staging→main',
     ]);
-  });
-
-  it('gives no release verdicts without a release', () => {
-    expect(computeHops([item('A', 'm.....')], null)[0]!.verdict).toBe('merge-with-extras');
   });
 });
 
@@ -158,9 +137,23 @@ describe('computeWarnings', () => {
     ['in the release and on develop', item('A', 'm.....'), []],
     ['in the release, not merged anywhere', item('A', ''), ['not-on-develop']],
     ['in the release, only on main (hotfix)', item('A', '..m...', { jira: { status: 'RELEASED' } }), ['not-on-develop']],
-    ['in the release, partial on develop', item('A', 'h.....'), ['not-on-develop']],
+    ['in the release, partial on develop', item('A', 'h.....'), ['not-on-develop', 'follow-up']],
+    ['exempt work only gets convention notes', item('A', '', {
+      exempt: 'not-live',
+      conventionIssues: ['x'],
+    }), ['convention']],
+    ['dependency bump', item('A', 'm.....', {
+      jira: null,
+      kind: 'dependency',
+    }), []],
     ['another release, not merged anywhere', item('A', '', { jira: { fixVersions: ['3.0.0'] } }), []],
-    ['Done with no fixVersion', item('A', 'm.....', { jira: { fixVersions: [] } }), ['done-no-fixversion']],
+    ['Done with no fixVersion, not yet on main', item('A', 'm.....', { jira: { fixVersions: [] } }), ['needs-fixversion']],
+    ['Done with no fixVersion, already fully on main', item('A', 'mmmmmm', {
+      jira: {
+        fixVersions: [],
+        status: 'RELEASED',
+      },
+    }), []],
     ['open with no fixVersion', item('A', 'm.....', {
       jira: {
         fixVersions: [],
@@ -192,7 +185,15 @@ describe('computeWarnings', () => {
         jira: null,
         kind: 'untracked',
       }), ['extra-on-staging', 'untracked']],
-      ['in the release but still testing', item('A', 'mm....', { jira: { statusCategory: 'indeterminate' } }), []],
+      ['not tested on dev but already partly on main', item('A', 'mmh...', {
+        jira: {
+          fixVersions: ['3.0.0'],
+          statusCategory: 'indeterminate',
+        },
+      }), ['extra-on-staging', 'not-tested', 'follow-up']],
+      ['in the release but not tested on dev', item('A', 'mm....', {
+        jira: { statusCategory: 'indeterminate' },
+      }), ['not-tested']],
       ['rolling hotfix on staging', item('A', 'mm....', { jira: { fixVersions: ['Rolling Hotfixes'] } }), []],
       ['another release, but already on main too', item('A', 'mmm...', {
         jira: {
@@ -216,7 +217,7 @@ describe('computeWarnings', () => {
 
     it('flags Released work that is not fully on main', () => {
       expect(status('m.....', 'RELEASED')).toEqual(['status-mismatch']);
-      expect(status('mmh...', '(9) Released')).toEqual(['extra-on-staging', 'status-mismatch']);
+      expect(status('mmh...', '(9) Released')).toEqual(['extra-on-staging', 'status-mismatch', 'follow-up']);
     });
 
     it('flags work fully on main whose status is not Released', () => {
@@ -246,7 +247,7 @@ describe('computeWarnings', () => {
     it('flags work whose versions have all shipped but that isn\'t on main', () => {
       expect(warn('m.....', ['1.0.0'])).toEqual(['missed-release']);
       // On staging too, and not in the current release, so also an extra on staging.
-      expect(warn('mmh...', ['1.0.0'])).toEqual(['extra-on-staging', 'missed-release']);
+      expect(warn('mmh...', ['1.0.0'])).toEqual(['extra-on-staging', 'missed-release', 'follow-up']);
     });
 
     it('stays quiet once it is on main, when it was carried into an unreleased version, or for rolling versions', () => {
@@ -268,11 +269,77 @@ describe('computeWarnings', () => {
   });
 });
 
+describe('needs-fixversion', () => {
+  const noVersion = (app: string, over: Partial<JiraInfo> = {}) => computeWarnings(item('A', app, {
+    jira: {
+      fixVersions: [],
+      ...over,
+    },
+  }), R);
+
+  it('flags Done tickets with code and no fixVersion, in any sprint', () => {
+    expect(noVersion('m.....', { sprint: 'Sprint 1' })).toEqual(['needs-fixversion']);
+    expect(noVersion('m.....', {
+      status: 'READY TO RELEASE',
+      sprint: 'Sprint 9',
+    })).toEqual(['needs-fixversion']);
+  });
+
+  it('is silent for work not Done yet (the fixVersion comes at Done) and for tickets with no code', () => {
+    expect(noVersion('m.....', { statusCategory: 'indeterminate' })).toEqual([]);
+    expect(noVersion('')).toEqual([]);
+  });
+});
+
+describe('pickCurrentRelease', () => {
+  const releases = [
+    {
+      name: '1.0.0',
+      released: true,
+    },
+    {
+      name: '2.0.0',
+      released: false,
+    },
+    {
+      name: 'Rolling Hotfixes',
+      released: false,
+    },
+    {
+      name: '3.0.0',
+      released: false,
+    },
+  ];
+
+  it('skips an unreleased version whose code is all on main, and reports it', () => {
+    const items = [item('A', 'mmmmmm'), item('B', 'mm....', { jira: { fixVersions: ['3.0.0'] } })];
+    expect(pickCurrentRelease(items, releases)).toEqual({
+      current: '3.0.0',
+      shippedUnmarked: ['2.0.0'],
+    });
+  });
+
+  it('treats a release as shipped when most of it is on main, leaving stragglers as missed releases', () => {
+    const items = [item('A', 'mmmmmm'), item('B', 'mmm...'), item('C', 'm.....')];
+    expect(pickCurrentRelease(items, releases)).toEqual({
+      current: '3.0.0',
+      shippedUnmarked: ['2.0.0'],
+    });
+    expect(computeWarnings(items[2]!, '3.0.0', releases, ['2.0.0'])).toContain('missed-release');
+  });
+
+  it('keeps it while most of its work is still to ship, or when nothing in it has code yet', () => {
+    expect(pickCurrentRelease([item('A', 'mm....')], releases).current).toBe('2.0.0');
+    expect(pickCurrentRelease([item('A', 'mmm...'), item('B', 'm.....'), item('C', 'mm....')], releases).current).toBe('2.0.0');
+    expect(pickCurrentRelease([item('A', '')], releases).current).toBe('2.0.0');
+  });
+});
+
 describe('the committed fixture', () => {
   const fixture: Snapshot = JSON.parse(readFileSync(new URL('../fixtures/snapshot.json', import.meta.url), 'utf8'));
 
   it('matches what the engine computes, so the UI is built against real verdicts', () => {
-    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases);
+    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases, fixture.shippedUnmarked);
     expect(judged.hops).toEqual(fixture.hops);
     expect(judged.items.map((i) => [i.id, i.warnings])).toEqual(fixture.items.map((i) => [i.id, i.warnings]));
   });

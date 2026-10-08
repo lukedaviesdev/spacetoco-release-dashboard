@@ -181,7 +181,9 @@
         }
       },
       "hotfix": false,
-      "warnings": []
+      "warnings": [
+        "not-tested"
+      ]
     },
     {
       "id": "DEV-973",
@@ -311,7 +313,11 @@
       },
       "hotfix": true,
       "warnings": [
+        "convention",
         "untracked"
+      ],
+      "conventionIssues": [
+        "#1066 `seo-hotfix`: branch has no ticket key (use <KEY>-<slug>, or release/, sync/, chore/)"
       ]
     },
     {
@@ -389,7 +395,7 @@
       "hotfix": false,
       "warnings": [
         "extra-on-staging",
-        "done-no-fixversion"
+        "needs-fixversion"
       ]
     },
     {
@@ -421,7 +427,13 @@
       "hotfix": true,
       "warnings": [
         "extra-on-staging",
+        "not-tested",
+        "follow-up",
+        "convention",
         "invalid-key"
+      ],
+      "conventionIssues": [
+        "#1107 `DEV-11940bugfix-submit-casual-bookings-main`: branch should start <KEY>-<slug>"
       ]
     },
     {
@@ -460,6 +472,118 @@
       "presence": {},
       "hotfix": false,
       "warnings": []
+    },
+    {
+      "id": "DEV-1500",
+      "kind": "ticket",
+      "title": "Observability stack in Terraform",
+      "jira": {
+        "status": "(9) RELEASED",
+        "statusCategory": "done",
+        "fixVersions": [
+          "Rolling Hotfixes"
+        ],
+        "sprint": "Sprint 41",
+        "assignee": "Sam Patel"
+      },
+      "prs": [
+        {
+          "repo": "app",
+          "number": 1121,
+          "headRef": "DEV-1500-otel-terraform",
+          "base": "develop",
+          "title": "[DEV-1500] Terraform otel",
+          "author": "sam-patel",
+          "mergedAt": "2026-09-25T04:00:00Z",
+          "on": [
+            "develop"
+          ]
+        }
+      ],
+      "presence": {
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "exempt": "released-on-develop",
+      "warnings": []
+    },
+    {
+      "id": "app-pr-1164",
+      "kind": "dependency",
+      "title": "Bump axios from 1.16.0 to 1.20.0",
+      "prs": [
+        {
+          "repo": "app",
+          "number": 1164,
+          "headRef": "dependabot/npm_and_yarn/axios-1.20.0",
+          "base": "develop",
+          "title": "Bump axios from 1.16.0 to 1.20.0",
+          "author": "dependabot[bot]",
+          "mergedAt": "2026-10-04T02:00:00Z",
+          "on": [
+            "develop"
+          ]
+        }
+      ],
+      "presence": {
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "warnings": []
+    },
+    {
+      "id": "DEV-1210",
+      "kind": "ticket",
+      "title": "Tidy legacy booking filters",
+      "jira": {
+        "status": "Done",
+        "statusCategory": "done",
+        "fixVersions": [],
+        "sprint": "Sprint 39",
+        "assignee": "Hana Lee"
+      },
+      "prs": [
+        {
+          "repo": "app",
+          "number": 1099,
+          "headRef": "DEV-1210-tidy-filters",
+          "base": "develop",
+          "title": "[DEV-1210] Tidy filters",
+          "author": "hana-lee",
+          "mergedAt": "2026-09-12T03:00:00Z",
+          "on": [
+            "develop"
+          ]
+        }
+      ],
+      "presence": {
+        "app": {
+          "develop": "merged",
+          "staging": "none",
+          "main": "none",
+          "demo": "none",
+          "main-uk": "none",
+          "demo-uk": "none"
+        }
+      },
+      "hotfix": false,
+      "warnings": [
+        "needs-fixversion"
+      ]
     }
   ],
   "hops": [
@@ -467,13 +591,19 @@
       "repo": "app",
       "from": "develop",
       "to": "staging",
-      "verdict": "merge-with-extras",
+      "verdict": "not-safe",
       "aheadIds": [
         "DEV-1189",
-        "DEV-1290"
+        "DEV-1290",
+        "app-pr-1164",
+        "DEV-1210"
+      ],
+      "bringUpIds": [
+        "DEV-1189"
       ],
       "blockingIds": [
-        "DEV-1290"
+        "DEV-1290",
+        "DEV-1210"
       ],
       "backSyncIds": [
         "DEV-1200"
@@ -483,7 +613,7 @@
       "repo": "app",
       "from": "staging",
       "to": "main",
-      "verdict": "cherry-pick",
+      "verdict": "hold-back",
       "aheadIds": [
         "DEV-1314",
         "DEV-1113",
@@ -491,11 +621,13 @@
         "DEV-1325",
         "DEV-11940"
       ],
+      "bringUpIds": [
+        "DEV-1314"
+      ],
       "blockingIds": [
         "DEV-1113",
         "DEV-973",
-        "DEV-1325",
-        "DEV-11940"
+        "DEV-1325"
       ],
       "backSyncIds": [
         "app-pr-1066"
@@ -509,6 +641,7 @@
       "aheadIds": [
         "DEV-11940"
       ],
+      "bringUpIds": [],
       "blockingIds": [],
       "backSyncIds": []
     },
@@ -521,6 +654,7 @@
         "app-pr-1066",
         "DEV-11940"
       ],
+      "bringUpIds": [],
       "blockingIds": [],
       "backSyncIds": []
     },
@@ -530,6 +664,7 @@
       "to": "demo-uk",
       "verdict": "in-sync",
       "aheadIds": [],
+      "bringUpIds": [],
       "blockingIds": [],
       "backSyncIds": []
     },
@@ -537,10 +672,11 @@
       "repo": "api",
       "from": "develop",
       "to": "staging",
-      "verdict": "merge-with-extras",
+      "verdict": "not-safe",
       "aheadIds": [
         "DEV-973"
       ],
+      "bringUpIds": [],
       "blockingIds": [
         "DEV-973"
       ],
@@ -550,8 +686,11 @@
       "repo": "api",
       "from": "staging",
       "to": "main",
-      "verdict": "clean",
+      "verdict": "safe",
       "aheadIds": [
+        "DEV-1400"
+      ],
+      "bringUpIds": [
         "DEV-1400"
       ],
       "blockingIds": [],

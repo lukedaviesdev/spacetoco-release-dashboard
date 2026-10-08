@@ -8,9 +8,9 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Item, RepoId, Snapshot } from '../shared/types/snapshot.ts';
 import { REPOS } from '../shared/utils/snapshot.ts';
-import { judge } from '../shared/utils/verdicts.ts';
-import { addSyncedPresence, mergeItems, readGit } from './lib/git.ts';
-import { applyPrs, readPrs, rekeyByPrTitle, type PrDetails } from './lib/github.ts';
+import { judge, pickCurrentRelease } from '../shared/utils/verdicts.ts';
+import { addSyncedPresence, buildItems, mergeItems, scanRepo, type PrDetail } from './lib/git.ts';
+import { readPrs } from './lib/github.ts';
 import { applyJira, dropDoneWithoutCode, readJira } from './lib/jira.ts';
 
 const env = process.env;
@@ -36,42 +36,35 @@ const pathOf = (repo: typeof REPOS[number]) => (env[`${repo.id.toUpperCase()}_RE
 const heads: Snapshot['heads'] = {};
 const syncedKeys: Partial<Record<RepoId, string[]>> = {};
 const byId = new Map<string, Item>();
+if (!env.GITHUB_TOKEN) log('GitHub: skipped (set GITHUB_TOKEN). PR titles and bases come from git only.');
 
 for (const repo of REPOS) {
   const path = pathOf(repo);
   if (values.fetch) execFileSync('git', ['-C', path, 'fetch', '--quiet', 'origin', ...repo.branches], { stdio: 'inherit' });
-  const git = readGit({
+  const scan = scanRepo({
     path,
     repo: repo.id,
     projects,
   });
-  heads[repo.id] = git.heads;
-  syncedKeys[repo.id] = git.syncedKeys;
-  for (const item of git.items) byId.set(item.id, byId.has(item.id) ? mergeItems(byId.get(item.id)!, item) : item);
-  log(`git ${repo.name}: ${git.items.length} items not on every branch.`);
-}
-let items = [...byId.values()];
-let releases: Snapshot['releases'] = [];
-let currentRelease: Snapshot['currentRelease'] = null;
-
-if (env.GITHUB_TOKEN) {
-  const details = new Map<string, PrDetails>();
-  for (const repo of REPOS) {
-    const numbers = [...new Set(items.flatMap((i) => i.prs.filter((pr) => pr.repo === repo.id).map((pr) => pr.number)))];
-    const found = await readPrs({
+  heads[repo.id] = scan.heads;
+  syncedKeys[repo.id] = scan.syncedKeys;
+  // PR titles and bases from GitHub: titles carry ticket keys (and the convention), bases say where a PR was aimed.
+  const details = env.GITHUB_TOKEN
+    ? await readPrs({
       token: env.GITHUB_TOKEN,
       github: repo.github,
       cachePath: `.cache/github-prs-${repo.id}.json`,
-    }, repo.id, numbers);
-    for (const [key, d] of found) details.set(key, d);
-  }
-  // Before Jira, so tickets found via PR titles get their Jira data too.
-  items = rekeyByPrTitle(applyPrs(items, details), projects);
-  log(`GitHub: details for ${details.size} PRs.`);
+    }, scan.prs.map((pr) => pr.number))
+    : new Map<number, PrDetail>();
+  const repoItems = buildItems(scan, details, projects);
+  for (const item of repoItems) byId.set(item.id, byId.has(item.id) ? mergeItems(byId.get(item.id)!, item) : item);
+  const reverted = scan.prs.filter((pr) => pr.revertedOn.length).length;
+  log(`${repo.name}: ${scan.prs.length} PRs in scope (${reverted} reverted somewhere), ${repoItems.length} items, `
+    + `GitHub details for ${details.size}.`);
 }
-else {
-  log('GitHub: skipped (set GITHUB_TOKEN).');
-}
+let items = [...byId.values()];
+let releases: Snapshot['releases'] = [];
+let currentRelease: Snapshot['currentRelease'] | undefined;
 
 if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
   const jira = await readJira({
@@ -96,13 +89,21 @@ const before = items.length;
 items = dropDoneWithoutCode(items);
 if (before > items.length) log(`Dropped ${before - items.length} Done tickets with no code in either repo.`);
 
-const judged = judge(items, currentRelease, releases);
+// Jira's earliest unreleased version may have already gone out: skip any whose code is all on main.
+const picked = pickCurrentRelease(items, releases);
+if (picked.shippedUnmarked.length) {
+  log(`Looks shipped but not marked released in Jira: ${picked.shippedUnmarked.join(', ')}. Using ${picked.current ?? 'none'}.`);
+}
+currentRelease = picked.current;
+
+const judged = judge(items, currentRelease, releases, picked.shippedUnmarked);
 
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),
   heads,
   releases,
   currentRelease,
+  ...(picked.shippedUnmarked.length && { shippedUnmarked: picked.shippedUnmarked }),
   items: judged.items,
   hops: judged.hops,
 };

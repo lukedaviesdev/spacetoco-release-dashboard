@@ -56,6 +56,15 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **Ask where testing happens before modelling statuses.** "Done" meant "tested on dev", not "on staging". (Phase 5)
 - **Read the source behind a referenced document before modelling it.** The Confluence "release sheet" turned out to be a live Jira query on fixVersion. (Phase 5)
 
+- **"Every file is exempt" needs neutral files.** Root `package.json` and lockfiles ride along with any change; without ignoring them DEV-874 (Terraform) and DEV-1336 (tests) weren't exempt. Check classification rules against real PRs, not just the scripted repo. (Phase 6)
+- **Untested work reaching main matters more than untested work on staging.** `not-tested` first only looked at staging, which missed BUG-554 already on main. (Phase 6)
+- **Split engines into a git scan and a pure build step.** The scripted-repo test drives the scan once, and every rule in `buildItems` is checked without I/O. (Phase 6)
+
+- **"Current release = earliest unreleased version" trusts Jira housekeeping that lags.** 27.3.0 shipped on 1 Oct but wasn't marked released, so every verdict was judged against the previous release. Detect "looks shipped" from the branches and say so. A strict "all on main" rule never fires, because releases leave stragglers (DEV-1159), so use a majority. (Phase 6, user correction)
+- **When the user says the data is wrong, show them the data before changing rules.** "None of these have fixVersions" turned out to be 11 of 29; the real problem was the stale current release. (Phase 6)
+
+- **Don't infer process from a single field's distribution.** Many current-sprint tickets lacked fixVersions, so I tied "needs a fixVersion" to the sprint; the real rule is that the fixVersion is set at Done, so Done without one is the slip, and sprint is irrelevant. (Phase 6, user correction)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
@@ -81,6 +90,7 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **The preview server config is `~/.claude/launch.json`** (the session root), not `.claude/launch.json` in this repo. The entry is `release-dashboard` (port 3000). (Phase 0)
 - **The shell is zsh: unquoted `$var` does not word-split, and a bare `=====` is a command error.** Use arrays or `${a%%:*}` splitting, and `echo '---'` for separators. (Phase 0)
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
+- **The user's active `gh` account may be `lukedavies-spacetoco` (work).** Don't switch it. For this personal repo, run push and `gh api` with `GH_TOKEN=$(gh auth token --user lukedaviesdev)` for that command only. (Phase 6)
 - **No git auth switching is needed until Phase 7 (hosting).** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
 - **The browser pane may be hidden, so screenshots time out.** Use headless Chrome against `nuxt generate` + `python3 -m http.server`; force the theme with `--blink-settings=preferredColorScheme=0` (dark) or `=1` (light). (Phase 4)

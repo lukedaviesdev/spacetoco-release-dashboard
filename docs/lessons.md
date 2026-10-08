@@ -90,6 +90,7 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **The preview server config is `~/.claude/launch.json`** (the session root), not `.claude/launch.json` in this repo. The entry is `release-dashboard` (port 3000). (Phase 0)
 - **The shell is zsh: unquoted `$var` does not word-split, and a bare `=====` is a command error.** Use arrays or `${a%%:*}` splitting, and `echo '---'` for separators. (Phase 0)
 - **Commits in this repo use `lukedaviesweb@gmail.com`** (repo-local config). Don't reset it. (Phase 0)
+- **The user's active `gh` account may be `lukedavies-spacetoco` (work).** Don't switch it. For this personal repo, run push and `gh api` with `GH_TOKEN=$(gh auth token --user lukedaviesdev)` for that command only. (Phase 6)
 - **No git auth switching is needed until Phase 7 (hosting).** The snapshot reads the local monorepo clone with existing credentials; `gh` pushes as `lukedaviesdev`. (Phase 1)
 - **Open a PR at the end of every phase, without being reminded.** (Phase 1, user correction)
 - **The browser pane may be hidden, so screenshots time out.** Use headless Chrome against `nuxt generate` + `python3 -m http.server`; force the theme with `--blink-settings=preferredColorScheme=0` (dark) or `=1` (light). (Phase 4)

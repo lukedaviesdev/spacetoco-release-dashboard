@@ -147,7 +147,13 @@ describe('computeWarnings', () => {
       kind: 'dependency',
     }), []],
     ['another release, not merged anywhere', item('A', '', { jira: { fixVersions: ['3.0.0'] } }), []],
-    ['Done with no fixVersion', item('A', 'm.....', { jira: { fixVersions: [] } }), ['done-no-fixversion']],
+    ['Done with no fixVersion, not yet on main', item('A', 'm.....', { jira: { fixVersions: [] } }), ['needs-fixversion']],
+    ['Done with no fixVersion, already fully on main', item('A', 'mmmmmm', {
+      jira: {
+        fixVersions: [],
+        status: 'RELEASED',
+      },
+    }), []],
     ['open with no fixVersion', item('A', 'm.....', {
       jira: {
         fixVersions: [],
@@ -264,25 +270,24 @@ describe('computeWarnings', () => {
 });
 
 describe('needs-fixversion', () => {
-  const sprint = 'Sprint 7';
-  const noVersion = (app: string, over: Partial<JiraInfo> = {}) => computeWarnings(
-    item('A', app, {
-      jira: {
-        fixVersions: [],
-        sprint,
-        ...over,
-      },
-    }), R, [], sprint,
-  );
+  const noVersion = (app: string, over: Partial<JiraInfo> = {}) => computeWarnings(item('A', app, {
+    jira: {
+      fixVersions: [],
+      ...over,
+    },
+  }), R);
 
-  it('flags current-sprint tickets that are Done or already on develop', () => {
-    expect(noVersion('')).toEqual(['needs-fixversion']);
-    expect(noVersion('m.....', { statusCategory: 'indeterminate' })).toEqual(['needs-fixversion']);
+  it('flags Done tickets with code and no fixVersion, in any sprint', () => {
+    expect(noVersion('m.....', { sprint: 'Sprint 1' })).toEqual(['needs-fixversion']);
+    expect(noVersion('m.....', {
+      status: 'READY TO RELEASE',
+      sprint: 'Sprint 9',
+    })).toEqual(['needs-fixversion']);
   });
 
-  it('stays a quiet note outside the current sprint, and silent for open work with no code', () => {
-    expect(noVersion('m.....', { sprint: 'Sprint 6' })).toEqual(['done-no-fixversion']);
-    expect(noVersion('', { statusCategory: 'new' })).toEqual([]);
+  it('is silent for work not Done yet (the fixVersion comes at Done) and for tickets with no code', () => {
+    expect(noVersion('m.....', { statusCategory: 'indeterminate' })).toEqual([]);
+    expect(noVersion('')).toEqual([]);
   });
 });
 
@@ -320,7 +325,7 @@ describe('pickCurrentRelease', () => {
       current: '3.0.0',
       shippedUnmarked: ['2.0.0'],
     });
-    expect(computeWarnings(items[2]!, '3.0.0', releases, undefined, ['2.0.0'])).toContain('missed-release');
+    expect(computeWarnings(items[2]!, '3.0.0', releases, ['2.0.0'])).toContain('missed-release');
   });
 
   it('keeps it while most of its work is still to ship, or when nothing in it has code yet', () => {
@@ -334,7 +339,7 @@ describe('the committed fixture', () => {
   const fixture: Snapshot = JSON.parse(readFileSync(new URL('../fixtures/snapshot.json', import.meta.url), 'utf8'));
 
   it('matches what the engine computes, so the UI is built against real verdicts', () => {
-    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases, fixture.currentSprint);
+    const judged = judge(fixture.items, fixture.currentRelease, fixture.releases, fixture.shippedUnmarked);
     expect(judged.hops).toEqual(fixture.hops);
     expect(judged.items.map((i) => [i.id, i.warnings])).toEqual(fixture.items.map((i) => [i.id, i.warnings]));
   });

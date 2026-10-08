@@ -65,7 +65,6 @@ for (const repo of REPOS) {
 let items = [...byId.values()];
 let releases: Snapshot['releases'] = [];
 let currentRelease: Snapshot['currentRelease'] | undefined;
-let currentSprint: string | undefined;
 
 if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
   const jira = await readJira({
@@ -76,7 +75,7 @@ if (env.JIRA_EMAIL && env.JIRA_API_TOKEN) {
     cloudId: env.JIRA_CLOUD_ID || undefined,
   }, items.filter((i) => i.kind === 'ticket').map((i) => i.id));
   items = applyJira(items, jira);
-  ({ releases, currentRelease, currentSprint } = jira);
+  ({ releases, currentRelease } = jira);
   const unknown = jira.missingKeys.length ? ` (${jira.missingKeys.join(', ')})` : '';
   log(`Jira: ${jira.issues.size} issues, ${releases.length} versions, current release ${currentRelease ?? 'none'}, `
     + `${jira.missingKeys.length} unknown keys${unknown}.`);
@@ -97,7 +96,7 @@ if (picked.shippedUnmarked.length) {
 }
 currentRelease = picked.current;
 
-const judged = judge(items, currentRelease, releases, currentSprint, picked.shippedUnmarked);
+const judged = judge(items, currentRelease, releases, picked.shippedUnmarked);
 
 const snapshot: Snapshot = {
   generatedAt: new Date().toISOString(),
@@ -105,7 +104,6 @@ const snapshot: Snapshot = {
   releases,
   currentRelease,
   ...(picked.shippedUnmarked.length && { shippedUnmarked: picked.shippedUnmarked }),
-  ...(currentSprint && { currentSprint }),
   items: judged.items,
   hops: judged.hops,
 };

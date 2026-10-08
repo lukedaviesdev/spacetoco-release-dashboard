@@ -173,7 +173,6 @@ export const useSnapshotStore = defineStore('snapshot', () => {
       snapshot.value.items,
       release.value,
       snapshot.value.releases,
-      snapshot.value.currentSprint,
       snapshot.value.shippedUnmarked,
     )
     : {

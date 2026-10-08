@@ -582,7 +582,7 @@
       },
       "hotfix": false,
       "warnings": [
-        "done-no-fixversion"
+        "needs-fixversion"
       ]
     }
   ],
@@ -696,6 +696,5 @@
       "blockingIds": [],
       "backSyncIds": []
     }
-  ],
-  "currentSprint": "Sprint 41"
+  ]
 }

@@ -76,7 +76,6 @@ export const WARNINGS = [
   'follow-up',
   'convention',
   'needs-fixversion',
-  'done-no-fixversion',
   'invalid-key',
   'untracked',
 ] as const;

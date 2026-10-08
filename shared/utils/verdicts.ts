@@ -103,7 +103,6 @@ export const computeWarnings = (
   item: Item,
   release: string | null,
   releases: Release[] = [],
-  currentSprint?: string,
   shippedUnmarked: string[] = [],
 ): Warning[] => {
   const warnings: Warning[] = [];
@@ -126,12 +125,10 @@ export const computeWarnings = (
     // Jira's lifecycle (Released once on main) disagrees with where the code is.
     add('status-mismatch', item.jira && repos.length && RELEASED_STATUS.test(item.jira.status) !== fullyOn(item, 'main'));
     add('follow-up', repos.some((r) => Object.values(item.presence[r] ?? {}).includes('partial')));
-    // In the current sprint, Done or already on develop, with no fixVersion: it can't be wanted until someone sets one.
-    const noVersion = item.kind === 'ticket' && !!item.jira && !item.jira.fixVersions.length;
-    const needsVersion = noVersion && !!currentSprint && item.jira?.sprint === currentSprint
-      && (item.jira.statusCategory === 'done' || repos.some((r) => rankOn(item, r, 'develop') > 0));
-    add('needs-fixversion', needsVersion);
-    add('done-no-fixversion', !needsVersion && noVersion && item.jira?.statusCategory === 'done');
+    // The fixVersion is set when a ticket moves to Done. Done without one can't be wanted by any release; once the work
+    // is fully on main it no longer affects a decision, so it's left alone.
+    add('needs-fixversion', item.kind === 'ticket' && item.jira?.statusCategory === 'done' && !item.jira.fixVersions.length
+      && repos.length && !fullyOn(item, 'main'));
   }
   add('convention', item.conventionIssues?.length);
   add('invalid-key', item.invalidKey);
@@ -144,12 +141,11 @@ export const judge = (
   items: Item[],
   release: string | null,
   releases: Release[] = [],
-  currentSprint?: string,
   shippedUnmarked: string[] = [],
 ): { items: Item[], hops: Hop[] } => {
   const judged = items.map((item) => ({
     ...item,
-    warnings: computeWarnings(item, release, releases, currentSprint, shippedUnmarked),
+    warnings: computeWarnings(item, release, releases, shippedUnmarked),
   }));
   return {
     items: judged,

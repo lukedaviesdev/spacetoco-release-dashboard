@@ -86,8 +86,6 @@ export interface Snapshot {
   currentRelease: string | null
   /** Unreleased in Jira, but every ticket with code is on main: shipped and not marked released. */
   shippedUnmarked?: string[]
-  /** Jira's active sprint, e.g. 'Sprint 2707'. */
-  currentSprint?: string
   items: Item[]
   hops: Hop[]
 }

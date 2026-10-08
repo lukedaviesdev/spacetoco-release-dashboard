@@ -34,7 +34,6 @@ const PROBLEMS: Partial<Record<Warning, { text: string, color: string }>> = {
 /** [label, tooltip] */
 const NOTES: Partial<Record<Warning, [string, string]>> = {
   'status-mismatch': ['Jira status', 'Jira status disagrees with the branches'],
-  'done-no-fixversion': ['No fixVersion', 'Done with no fixVersion'],
   'invalid-key': ['Unknown key', 'Key not found in Jira'],
   'untracked': ['No ticket', 'No ticket key on the branch, commits or PR title'],
   'follow-up': ['Follow-up behind', 'A later PR for this ticket hasn\'t reached every branch the ticket is on'],

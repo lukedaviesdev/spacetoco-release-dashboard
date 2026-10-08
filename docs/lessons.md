@@ -63,6 +63,8 @@ Format: the rule, then **Why** (what happened) and the phase it came from.
 - **"Current release = earliest unreleased version" trusts Jira housekeeping that lags.** 27.3.0 shipped on 1 Oct but wasn't marked released, so every verdict was judged against the previous release. Detect "looks shipped" from the branches and say so. A strict "all on main" rule never fires, because releases leave stragglers (DEV-1159), so use a majority. (Phase 6, user correction)
 - **When the user says the data is wrong, show them the data before changing rules.** "None of these have fixVersions" turned out to be 11 of 29; the real problem was the stale current release. (Phase 6)
 
+- **Don't infer process from a single field's distribution.** Many current-sprint tickets lacked fixVersions, so I tied "needs a fixVersion" to the sprint; the real rule is that the fixVersion is set at Done, so Done without one is the slip, and sprint is irrelevant. (Phase 6, user correction)
+
 ## Conventions
 
 - **Match spacetoco-app's conventions from the start, and check the monorepo before inventing a pattern.** Layout, store naming, colocated tests and lint rules are in `CLAUDE.md`.
